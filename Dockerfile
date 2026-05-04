@@ -1,5 +1,5 @@
 # Stage 1: Base setup with pnpm
-FROM node:25-alpine AS base
+FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV ASTRO_TELEMETRY_DISABLED=1
