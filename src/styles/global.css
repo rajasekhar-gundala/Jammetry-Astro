@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Define your custom utility shortcut here */
+@theme {
+  --color-primary: var(--color-blue-600);
+}
+
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors shadow-sm;
+}

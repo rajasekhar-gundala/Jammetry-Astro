@@ -1,0 +1,33 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/global.css';
+---
+
+<Layout title="Privacy Policy - Jammetry AI">
+  <main class="max-w-3xl mx-auto py-20 px-6">
+    <h1 class="text-4xl font-bold mb-8 text-gray-900">Privacy Policy</h1>
+    <p class="text-gray-500 mb-10 italic">Last updated: March 29, 2026</p>
+    
+    <div class="prose prose-blue max-w-none text-gray-700 space-y-6">
+      <section>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">1. Data Collection</h2>
+        <p>We collect business information (company name, domain, and email) to provide your AI services. We also log chat history to enforce our 100-message monthly limits.</p>
+      </section>
+
+      <section>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">2. AI Data Usage</h2>
+        <p>Information uploaded to our Vector Knowledge Base (PDFs/Web Crawls) is isolated per tenant. Your data is <strong>never</strong> used to train our base AI models for other customers.</p>
+      </section>
+
+      <section>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">3. Security</h2>
+        <p>We store data on encrypted VPS instances with nightly backups. Database access is restricted to authenticated administrators only.</p>
+      </section>
+
+      <div class="mt-12 p-6 bg-blue-50 rounded-xl">
+        <p class="text-sm font-semibold">Have questions about your data?</p>
+        <p class="text-sm">Email our Data Protection Officer: <a href="mailto:privacy@jammetry.com" class="text-blue-600 underline">privacy@jammetry.com</a></p>
+      </div>
+    </div>
+  </main>
+</Layout>

@@ -1,0 +1,105 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const pb = Astro.locals.pb;
+const user = Astro.locals.user;
+
+if (!user) {
+    return Astro.redirect('/login');
+}
+
+let leads: any[] = [];
+let fetchError = '';
+
+try {
+    // 1. Get all tenants owned by this user
+    const tenants = await pb.collection('tenants').getFullList();
+    const tenantIds = tenants.map(t => t.id);
+
+    // 2. Fetch leads only for these specific tenants
+    if (tenantIds.length > 0) {
+        // Creates a filter like: tenantId="id1" || tenantId="id2"
+        const filterStr = tenantIds.map(id => `tenantId="${id}"`).join(' || ');
+        
+        leads = await pb.collection('tenant_leads').getFullList({
+            filter: filterStr,
+            sort: '-created',
+            expand: 'tenantId' // 👉 Pulls in the tenant data so we can show the bot's name!
+        });
+    }
+} catch (err: any) {
+    console.error("Error fetching leads:", err.message);
+    fetchError = "Could not load leads. Please check your database permissions.";
+}
+---
+
+<Layout title="Captured Leads">
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Captured Leads</h1>
+            <p class="text-gray-600">People who have requested human follow-up from your AI assistants.</p>
+        </div>
+        <div class="bg-blue-50 text-blue-800 px-4 py-2 rounded-lg font-bold border border-blue-100">
+            Total Leads: {leads.length}
+        </div>
+    </div>
+
+    {fetchError && (
+        <div class="bg-red-50 text-red-600 p-4 rounded-lg mb-6 border border-red-100">
+            {fetchError}
+        </div>
+    )}
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {leads.length === 0 ? (
+            <div class="text-center py-16 px-6">
+                <span class="text-4xl mb-4 block">🎣</span>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">No leads captured yet!</h3>
+                <p class="text-gray-500">When visitors leave their email with your AI, they will appear here.</p>
+            </div>
+        ) : (
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-4">Date</th>
+                            <th class="px-6 py-4">Visitor Email</th>
+                            <th class="px-6 py-4">Message / Context</th>
+                            <th class="px-6 py-4">Captured By</th>
+                            <th class="px-6 py-4">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {leads.map((lead) => (
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                    {new Date(lead.created).toLocaleDateString()}
+                                </td>
+                                <td class="px-6 py-4 font-bold text-gray-900">
+                                    <a href={`mailto:${lead.visitor_email}`} class="hover:text-blue-600 hover:underline">
+                                        {lead.visitor_email}
+                                    </a>
+                                </td>
+                                <td class="px-6 py-4 text-gray-600 max-w-xs truncate" title={lead.visitor_message}>
+                                    {lead.visitor_message || "No message provided."}
+                                </td>
+                                <td class="px-6 py-4 text-gray-500">
+                                    {lead.expand?.tenantId?.name || "Unknown Bot"}
+                                </td>
+                                <td class="px-6 py-4">
+                                    {lead.status === 'new' ? (
+                                        <span class="bg-amber-100 text-amber-800 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide">New</span>
+                                    ) : (
+                                        <span class="bg-emerald-100 text-emerald-800 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide">Contacted</span>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+    </div>
+  </main>
+</Layout>

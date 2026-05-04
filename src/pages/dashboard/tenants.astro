@@ -1,0 +1,189 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const pb = Astro.locals.pb;
+const user = Astro.locals.user;
+
+// 👉 STRICT ROUTE PROTECTION
+// If the auth cookie is missing or invalid, redirect immediately to login.
+if (!pb?.authStore?.isValid || !user) {
+  return Astro.redirect('/login');
+}
+
+let tenants: any[] = [];
+let fetchError = '';
+
+let debugInfo = {
+  isAuthValid: pb.authStore.isValid,
+  userId: user.id,
+  userEmail: user.email
+};
+
+// Extract the user's registered app context (fallback to jammetry)
+const appContext = user.app_context || 'jammetry';
+
+try {
+  // We now safely know user.id exists because of the redirect check above
+  tenants = await pb.collection('tenants').getFullList({
+    filter: `owner="${user.id}"`,
+    sort: '-created',
+  });
+} catch (e: any) {
+  console.error("[TENANT FETCH ERROR]", e.message);
+  fetchError = `PocketBase Error: ${e.message}`;
+}
+---
+
+<Layout title="Tenant Management">
+  <main class="p-8 max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+      <div>
+        <h1 class="text-2xl font-bold">Your AI Assistants</h1>
+        <p class="text-gray-500 text-sm">Logged in as {debugInfo.userEmail}</p>
+      </div>
+      <button onclick="document.getElementById('add_modal').showModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-all">
+        + Add Tenant
+      </button>
+    </div>
+
+    <div class="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+      <table class="w-full border-collapse">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="p-4 text-left font-semibold text-gray-700">Company Name</th>
+            <th class="p-4 text-left font-semibold text-gray-700">Website URL</th>
+            <th class="p-4 text-left font-semibold text-gray-700">Status</th>
+            <th class="p-4 text-right font-semibold text-gray-700">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tenants.length === 0 ? (
+            <tr>
+              <td colspan="4" class="p-8 text-center text-gray-500">
+                You haven't created any AI tenants yet. Click "Add Tenant" to get started.
+              </td>
+            </tr>
+          ) : (
+            tenants.map((t) => {
+              // Conditionally route based on the user's product
+              const configureUrl = appContext === 'daas' 
+                ? `/dashboard/tenants/${t.id}/docs` 
+                : `/dashboard/tenants/${t.id}`;
+
+              return (
+                <tr class="border-b last:border-0 hover:bg-gray-50 transition-colors" id={`row-${t.id}`}>
+                  <td class="p-4 font-medium text-gray-900">{t.name}</td>
+                  <td class="p-4 text-gray-600">{t.domain}</td>
+                  <td class="p-4">
+                     <span class={`px-2 py-1 rounded-full text-xs font-medium ${t.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {t.active ? 'Active' : 'Disabled'}
+                     </span>
+                  </td>
+                  <td class="p-4 text-right space-x-4">
+                    <a href={configureUrl} class="text-blue-600 hover:text-blue-800 font-medium text-sm">Configure</a>
+                    <button 
+                      onclick={`confirmDelete('${t.id}', '${t.name}')`}
+                      class="text-red-500 hover:text-red-700 text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Modals remain identical below -->
+  <dialog id="add_modal" class="p-8 rounded-2xl shadow-2xl border-0 backdrop:bg-gray-900/60 fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg m-0">
+    <div class="w-full">
+      <form method="POST" action="/api/create-tenant" class="space-y-5">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">Create New AI Assistant</h2>
+          
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Company Name</label>
+            <input name="name" placeholder="Acme Corp" required class="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
+          
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Website URL</label>
+            <input name="domain" type="url" placeholder="https://example.com" required class="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Admin Email</label>
+            <input name="email" type="email" value={debugInfo.userEmail} placeholder="admin@company.com" required class="border border-gray-300 p-3 w-full rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+            <p class="text-xs text-gray-500 mt-1">Leave as your email to assign this tenant to yourself.</p>
+          </div>
+
+          <div class="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+              <button type="button" onclick="document.getElementById('add_modal').close()" class="px-5 py-2.5 text-gray-600 font-medium hover:bg-gray-50 rounded-lg transition-colors">Cancel</button>
+              <button type="submit" class="bg-blue-600 text-white px-6 py-2.5 rounded-lg shadow-sm hover:bg-blue-700 font-bold transition-colors">Create Tenant</button>
+          </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="delete_modal" class="p-0 rounded-2xl shadow-2xl border-0 backdrop:bg-gray-900/60 fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md m-0">
+    <div class="p-8 w-full text-center">
+      <div class="w-16 h-16 rounded-full bg-red-100 mx-auto flex items-center justify-center mb-6">
+        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">Delete Assistant?</h2>
+      <p class="text-gray-500 mb-8">Are you sure you want to delete <strong id="delete_tenant_name" class="text-gray-900"></strong>? This action cannot be undone and all associated chat logs will be lost.</p>
+      
+      <div class="flex justify-center gap-3">
+        <button type="button" onclick="closeDeleteModal()" class="px-6 py-2.5 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+        <button type="button" id="confirm_delete_btn" class="bg-red-600 text-white px-6 py-2.5 rounded-lg shadow-sm hover:bg-red-700 font-bold transition-colors">Yes, Delete</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script is:inline>
+    let currentDeleteId = null;
+    const deleteModal = document.getElementById('delete_modal');
+    const deleteBtn = document.getElementById('confirm_delete_btn');
+
+    window.confirmDelete = function(id, name) {
+      currentDeleteId = id;
+      document.getElementById('delete_tenant_name').innerText = name;
+      deleteModal.showModal();
+    };
+
+    window.closeDeleteModal = function() {
+      deleteModal.close();
+      currentDeleteId = null;
+    };
+
+    deleteBtn.addEventListener('click', async () => {
+      if (!currentDeleteId) return;
+      
+      const originalText = deleteBtn.innerText;
+      deleteBtn.innerText = "Deleting...";
+      deleteBtn.disabled = true;
+
+      try {
+        const response = await fetch(`/api/delete-tenant?id=${currentDeleteId}`, { method: 'DELETE' });
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          const data = await response.json();
+          alert("Failed to delete tenant: " + (data.error || "Unknown error"));
+          window.closeDeleteModal();
+        }
+      } catch (err) {
+        console.error("Delete failed:", err);
+        alert("A network error occurred.");
+        window.closeDeleteModal();
+      } finally {
+        deleteBtn.innerText = originalText;
+        deleteBtn.disabled = false;
+      }
+    });
+  </script>
+</Layout>

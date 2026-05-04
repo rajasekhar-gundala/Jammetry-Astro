@@ -1,0 +1,170 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const pb = Astro.locals.pb;
+const user = Astro.locals.user;
+
+let tenants: any[] = [];
+let messages: any[] = [];
+let fetchError = '';
+
+try {
+    if (user) {
+        tenants = await pb.collection('tenants').getFullList();
+        try {
+            messages = await pb.collection('chat_history').getFullList({
+                fields: 'tenantId',
+            });
+        } catch (msgError) {
+            console.warn("Could not fetch chat_history (API Rules likely locked). Defaulting to 0.");
+            messages = []; 
+        }
+    }
+} catch (e: any) {
+    console.error("[ANALYTICS ERROR]", e.message);
+    fetchError = 'Unable to load analytics. Please check database permissions.';
+}
+
+const stats = tenants.map(tenant => {
+    const count = messages.filter(m => m.tenantId === tenant.id).length;
+    const limit = 100;
+    
+    const isPro = tenant.plan_type === 'pro';
+    const percentage = isPro ? 100 : Math.min((count / limit) * 100, 100);
+    
+    return {
+        ...tenant,
+        usageCount: count,
+        usagePercent: percentage,
+        isPro: isPro,
+        isWarning: !isPro && count >= 80 && count < 100, 
+        isOverLimit: !isPro && count >= limit
+    };
+});
+
+const atRiskTenants = stats.filter(s => s.isWarning || s.isOverLimit);
+const totalMessages = messages.length;
+const activeTenants = tenants.filter(t => t.active).length;
+---
+
+<Layout title="Analytics">
+  <main class="p-8 max-w-5xl mx-auto">
+    
+    {Astro.url.searchParams.get('upgrade') === 'success' && (
+      <div class="bg-emerald-50 text-emerald-800 p-4 rounded-lg mb-6 border border-emerald-200 flex items-center gap-3">
+          <span class="text-2xl">🎉</span>
+          <div>
+              <strong class="block text-lg">Upgrade Successful!</strong>
+              <span class="text-sm">Your payment was processed. Your AI Assistant is now unlocked with unlimited capacity.</span>
+          </div>
+      </div>
+    )}
+
+    {fetchError && (
+      <div class="bg-red-50 text-red-600 p-4 rounded-lg mb-6 border border-red-100">
+        {fetchError}
+      </div>
+    )}
+
+    {atRiskTenants.length > 0 && (
+      <div class="mb-8 space-y-3">
+        {atRiskTenants.map(t => (
+          <div class={`flex items-center justify-between p-4 rounded-lg border shadow-sm animate-pulse ${t.isOverLimit ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+            <div class="flex items-center gap-3">
+              <span class="text-xl">{t.isOverLimit ? '🛑' : '⚠️'}</span>
+              <div>
+                <p class="font-bold">{t.name} is {t.isOverLimit ? 'at 100% capacity' : 'near limit'}</p>
+                <p class="text-sm opacity-90">Usage: {t.usageCount}/100 messages. Action required to prevent service cutoff.</p>
+              </div>
+            </div>
+            <a href={`/dashboard/tenants/${t.id}`} class="bg-white px-4 py-2 rounded shadow-sm text-sm font-bold hover:scale-105 transition-transform">
+              Manage Tenant
+            </a>
+          </div>
+        ))}
+      </div>
+    )}
+
+    <h1 class="text-3xl font-bold text-gray-900 mb-8">Platform Overview</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+        <p class="text-sm font-medium text-gray-500">Total AI Assistants</p>
+        <p class="text-3xl font-bold text-blue-600">{tenants.length}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+        <p class="text-sm font-medium text-gray-500">Active Subscriptions</p>
+        <p class="text-3xl font-bold text-green-600">{activeTenants}</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+        <p class="text-sm font-medium text-gray-500">Total Messages (MTD)</p>
+        <p class="text-3xl font-bold text-purple-600">{totalMessages}</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="p-6 border-b border-gray-100 bg-gray-50">
+        <h2 class="text-lg font-bold text-gray-800">Tenant Usage</h2>
+      </div>
+      <div class="p-6 space-y-8">
+        {stats.length === 0 ? (
+           <p class="text-gray-500 text-center py-4">No data available yet.</p>
+        ) : (
+          stats.map((s) => (
+            <div>
+              <div class="flex justify-between items-end mb-3">
+                <div>
+                  <h3 class="font-bold text-gray-800">{s.name}</h3>
+                  {s.isPro ? (
+                      <span class="inline-block mt-1 bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">Pro Plan</span>
+                  ) : (
+                      <span class="inline-block mt-1 bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">Free Plan</span>
+                  )}
+                </div>
+                
+                <div class="flex items-center gap-4">
+                  <span class={`text-sm ${s.isOverLimit ? 'text-red-600 font-bold' : s.isWarning ? 'text-amber-600 font-bold' : 'text-gray-500'}`}>
+                    {s.isPro ? 'Unlimited Access' : `${s.usageCount} / 100 messages`}
+                  </span>
+                  
+                  {!s.isPro && (
+                      <form action="/api/create-checkout" method="POST">
+                        {/* 👇 FIX: Uses s.id instead of tenant.id */}
+                        <input type="hidden" name="tenantId" value={s.id} />
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition text-sm font-medium">
+                            Upgrade to Pro
+                        </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                <div 
+                  class={`h-3 rounded-full transition-all duration-500 ${s.isPro ? 'bg-emerald-500' : s.isOverLimit ? 'bg-red-500' : s.isWarning ? 'bg-amber-500' : 'bg-blue-500'}`} 
+                  style={`width: ${s.usagePercent}%`}
+                ></div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script is:inline>
+    setTimeout(() => {
+        const banners = document.querySelectorAll('.bg-emerald-50');
+        banners.forEach(banner => {
+            banner.style.transition = "opacity 0.5s ease";
+            banner.style.opacity = '0';
+            setTimeout(() => banner.style.display = 'none', 500); 
+        });
+        
+        if (window.location.search.includes('upgrade=')) {
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+    }, 6000);
+</script>

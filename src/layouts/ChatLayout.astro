@@ -1,0 +1,27 @@
+---
+import SEO from '../components/SEO.astro';
+
+const { title } = Astro.props;
+---
+<html lang="en">
+  <head>
+    <SEO
+      title={title}
+      description="Chat securely with your private PDFs using advanced RAG and enterprise-grade data protection."
+    />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} - AI Docpilot</title>
+  </head>
+  <body class="bg-gray-900 text-gray-100 font-sans antialiased overflow-hidden">
+    <div class="flex h-screen w-full">
+      <aside class="hidden md:flex flex-col w-72 bg-gray-950 border-r border-gray-800 p-4">
+        <slot name="sidebar" />
+      </aside>
+      <main class="flex-1 flex flex-col h-full bg-gray-900 relative">
+        <slot name="main" />
+      </main>
+    </div>
+  </body>
+</html>

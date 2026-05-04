@@ -1,0 +1,23 @@
+---
+import SEO from '../components/SEO.astro';
+
+const { title } = Astro.props;
+---
+<html lang="en">
+  <head>
+    <SEO
+      title={title}
+      description="Extract structured data from your sales invoices in bulk using Gemini 1.5 Flash. Export to CSV/Excel securely."
+    />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} - AI Copilot</title>
+  </head>
+  <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main>
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

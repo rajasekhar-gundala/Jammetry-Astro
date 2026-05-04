@@ -1,0 +1,15 @@
+---
+const { currentCount, limit = 100 } = Astro.props;
+const percentage = Math.min((currentCount / limit) * 100, 100);
+const color = percentage > 80 ? 'bg-red-500' : 'bg-green-500';
+---
+
+<div class="mt-4">
+    <div class="flex justify-between text-sm mb-1">
+        <span>Daily Usage</span>
+        <span>{currentCount} / {limit} chats</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-2">
+        <div class={`${color} h-2 rounded-full transition-all`} style={`width: ${percentage}%`}></div>
+    </div>
+</div>

@@ -1,0 +1,322 @@
+import type { APIRoute } from 'astro';
+import PocketBase from 'pocketbase';
+
+export const prerender = false;
+
+export const GET: APIRoute = async ({ params, request }) => {
+  const tenantId = params.id;
+  if (!tenantId) return new Response("Missing ID", { status: 400 });
+
+  const ASTRO_LIVE_URL = "https://jammetry.com"; 
+  const API_BASE = "https://backend.jammetry.com"; 
+
+  const pb = new PocketBase(process.env.PB_URL || "http://pocketbase:8080");
+  let botName = "AI Assistant";
+  let themeColor = "#2563eb";
+  let welcomeMessage = "Hello! How can I help you today?";
+
+  try {
+      const adminEmail = process.env.PB_ADMIN_EMAIL;
+      const adminPass = process.env.PB_ADMIN_PASSWORD;
+      if (adminEmail && adminPass) {
+          await pb.collection('_superusers').authWithPassword(adminEmail, adminPass);
+      }
+
+      const tenant = await pb.collection('tenants').getOne(tenantId);
+      const settings = tenant.settings || {};
+      if (settings.bot_name) botName = settings.bot_name;
+      if (settings.theme_color) themeColor = settings.theme_color;
+      if (settings.welcome_message) welcomeMessage = settings.welcome_message;
+  } catch (e) {
+      console.warn(`[WIDGET] Could not load custom settings for tenant ${tenantId}. Using defaults.`);
+  }
+
+  const jsCode = `
+    (function() {
+      if (window.AI_WIDGET_INITIALIZED) return;
+      window.AI_WIDGET_INITIALIZED = true;
+
+      const TENANT_ID = "${tenantId}";
+      const API_URL = "${API_BASE}";
+      const BOT_NAME = "${botName}";
+      const WELCOME_MSG = "${welcomeMessage}";
+      const LIVE_WEBHOOK_URL = "${ASTRO_LIVE_URL}";
+
+      const VISITOR_KEY = \`jammetry_vid_\${TENANT_ID}\`;
+      let visitorId = localStorage.getItem(VISITOR_KEY);
+      if (!visitorId) {
+          visitorId = 'vid_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+          localStorage.setItem(VISITOR_KEY, visitorId);
+      }
+
+      const style = document.createElement('style');
+      style.textContent = \`
+        @keyframes jammetry-glow {
+            0% { box-shadow: 0 0 0 0 ${themeColor}80; transform: scale(1); }
+            70% { box-shadow: 0 0 0 15px transparent; transform: scale(1.03); }
+            100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); }
+        }
+
+        #ai-chat-bubble { 
+            position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; 
+            background: ${themeColor}; border-radius: 50%; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; color: white; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 24px; z-index: 999999; 
+            transition: all 0.3s;
+            animation: jammetry-glow 2.5s infinite; 
+        }
+        #ai-chat-bubble:hover { transform: scale(1.1); animation: none; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+        
+        #ai-chat-window { position: fixed; bottom: 90px; right: 20px; width: 380px; height: 550px; background: white; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); display: none; flex-direction: column; overflow: hidden; z-index: 999999; border: 1px solid #eee; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        #ai-chat-header { background: ${themeColor}; color: white; padding: 15px 20px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #ai-chat-msgs { flex: 1; padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #333; }
+        #ai-chat-input-area { display: flex; padding: 15px; border-top: 1px solid #eee; background: #fff; }
+        #ai-chat-input { flex: 1; border: 1px solid #ddd; padding: 12px 15px; border-radius: 8px; outline: none; transition: border-color 0.2s; }
+        #ai-chat-input:focus { border-color: ${themeColor}; }
+        
+        .ai-msg-container { margin-bottom: 20px; }
+        .user-label { color: ${themeColor}; font-weight: bold; display: block; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bot-label { color: #666; font-weight: bold; display: block; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .ai-content { display: inline-block; background: #f8f9fa; padding: 12px 16px; border-radius: 12px; border-top-left-radius: 2px; width: 90%; border: 1px solid #f1f1f1; }
+        .ai-content p { margin: 0 0 10px 0; }
+        .ai-content p:last-child { margin: 0; }
+        .ai-content ul, .ai-content ol { margin-top: 5px; margin-bottom: 10px; padding-left: 20px; }
+        .ai-content strong { color: #111; font-weight: 600; }
+        .ai-content pre { background: #1e1e1e; color: #fff; padding: 10px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+        .ai-content code { background: #e9ecef; padding: 2px 4px; border-radius: 4px; font-size: 12px; }
+        .ai-content pre code { background: transparent; padding: 0; }
+        
+        .user-content { display: inline-block; background: ${themeColor}15; padding: 12px 16px; border-radius: 12px; border-top-right-radius: 2px; color: #111; }
+
+        .jammetry-feedback-box { display: flex; gap: 8px; margin-top: 8px; opacity: 0; animation: fadeIn 0.5s forwards; }
+        .jammetry-feedback-btn { background: none; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; padding: 4px 8px; font-size: 14px; transition: all 0.2s; color: #666; }
+        .jammetry-feedback-btn:hover { background: #f0f0f0; border-color: #bbb; transform: scale(1.05); }
+        .jammetry-feedback-btn.active-good { background: #dcfce7; border-color: #22c55e; color: #166534; }
+        .jammetry-feedback-btn.active-bad { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+        .jammetry-feedback-thanks { font-size: 11px; color: #888; align-self: center; margin-left: 5px; }
+        @keyframes fadeIn { to { opacity: 1; } }
+      \`;
+      document.head.appendChild(style);
+
+      const container = document.createElement('div');
+      container.id = 'ai-widget-container';
+      container.innerHTML = \`
+        <div id="ai-chat-bubble">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div id="ai-chat-window">
+          <div id="ai-chat-header">
+            <span style="font-size: 16px; letter-spacing: 0.5px;">\${BOT_NAME}</span>
+            <span id="ai-close" style="cursor:pointer; font-size: 24px; opacity: 0.8; transition: opacity 0.2s;">&times;</span>
+          </div>
+          <div id="ai-chat-msgs">
+            <div style="text-align:center; padding: 20px; color: #888; font-size: 12px;">Loading...</div>
+          </div>
+          <div id="ai-chat-input-area">
+            <input type="text" id="ai-chat-input" placeholder="Ask a question..." autocomplete="off">
+          </div>
+        </div>
+      \`;
+      document.body.appendChild(container);
+
+      const chatBubble = document.getElementById('ai-chat-bubble');
+      const chatWindow = document.getElementById('ai-chat-window');
+      const chatInput = document.getElementById('ai-chat-input');
+      const chatMsgs = document.getElementById('ai-chat-msgs');
+      const closeBtn = document.getElementById('ai-close');
+
+      const loadChatHistory = async () => {
+          try {
+              const res = await fetch(\`\${API_URL}/chat/\${TENANT_ID}/history?visitor_id=\${visitorId}\`);
+              const data = await res.json();
+              
+              if (data.history && data.history.length > 0) {
+                  let historyHtml = "";
+                  data.history.forEach(msg => {
+                      const aiHtml = window.marked ? window.marked.parse(msg.ai_response) : msg.ai_response.replace(/\\n/g, '<br>');
+                      
+                      // 👉 NEW: Rebuild the feedback buttons based on the saved state!
+                      let feedbackHtml = "";
+                      
+                      // If they already rated it GOOD
+                      if (msg.feedback === 'good') {
+                          feedbackHtml = \`
+                            <div class="jammetry-feedback-box" style="opacity: 1;">
+                                <button class="jammetry-feedback-btn active-good" disabled>👍</button>
+                                <span class="jammetry-feedback-thanks">Thanks for the feedback!</span>
+                            </div>\`;
+                      // If they already rated it BAD
+                      } else if (msg.feedback === 'bad') {
+                          feedbackHtml = \`
+                            <div class="jammetry-feedback-box" style="opacity: 1;">
+                                <button class="jammetry-feedback-btn active-bad" disabled>👎</button>
+                                <span class="jammetry-feedback-thanks">Thanks for the feedback!</span>
+                            </div>\`;
+                      // If they haven't rated it yet, give them the buttons!
+                      } else if (msg.id) {
+                          feedbackHtml = \`
+                            <div class="jammetry-feedback-box" id="feedback-\${msg.id}" style="opacity: 1;">
+                                <button class="jammetry-feedback-btn" onclick="submitFeedback('\${msg.id}', 'good', this)">👍</button>
+                                <button class="jammetry-feedback-btn" onclick="submitFeedback('\${msg.id}', 'bad', this)">👎</button>
+                            </div>\`;
+                      }
+
+                      historyHtml += \`
+                        <div class="ai-msg-container"><span class="user-label">You</span><span class="user-content">\${msg.user_message}</span></div>
+                        <div class="ai-msg-container">
+                            <span class="bot-label">\${BOT_NAME}</span>
+                            <span class="ai-content">\${aiHtml}</span>
+                            \${feedbackHtml}
+                        </div>
+                      \`;
+                  });
+                  chatMsgs.innerHTML = historyHtml;
+              } else {
+                  chatMsgs.innerHTML = \`<div class="ai-msg-container"><span class="bot-label">\${BOT_NAME}</span><span class="ai-content">\${WELCOME_MSG}</span></div>\`;
+              }
+              chatMsgs.scrollTop = chatMsgs.scrollHeight;
+          } catch (e) {
+              console.warn("Could not load history", e);
+              chatMsgs.innerHTML = \`<div class="ai-msg-container"><span class="bot-label">\${BOT_NAME}</span><span class="ai-content">\${WELCOME_MSG}</span></div>\`;
+          }
+      };
+
+      const markedScript = document.createElement('script');
+      markedScript.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+      markedScript.onload = loadChatHistory;
+      markedScript.onerror = loadChatHistory; 
+      document.head.appendChild(markedScript);
+
+      const toggleChat = () => {
+        const isHidden = chatWindow.style.display === 'none' || !chatWindow.style.display;
+        chatWindow.style.display = isHidden ? 'flex' : 'none';
+        if (isHidden) {
+            chatInput.focus();
+            chatBubble.style.animation = 'none'; 
+        }
+      };
+
+      chatBubble.onclick = toggleChat;
+      closeBtn.onclick = toggleChat;
+
+      closeBtn.onmouseover = () => closeBtn.style.opacity = '1';
+      closeBtn.onmouseout = () => closeBtn.style.opacity = '0.8';
+
+      chatInput.onkeypress = async (e) => {
+        if (e.key === 'Enter' && chatInput.value.trim()) {
+          const query = chatInput.value.trim();
+          chatInput.value = '';
+          
+          chatMsgs.innerHTML += \`<div class="ai-msg-container"><span class="user-label">You</span><span class="user-content">\${query}</span></div>\`;
+          chatMsgs.scrollTop = chatMsgs.scrollHeight;
+
+          const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+          let messageId = '';
+          for(let i=0; i<15; i++) messageId += chars.charAt(Math.floor(Math.random() * chars.length));
+
+          let receivedContent = false;
+          let fullMessageBuffer = ""; 
+
+          try {
+            const response = await fetch(\`\${API_URL}/chat/\${TENANT_ID}\`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: query, message_id: messageId, visitor_id: visitorId })
+            });
+
+            if (!response.ok) throw new Error('API Error');
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            let botMsgDiv = document.createElement('div');
+            botMsgDiv.className = 'ai-msg-container';
+            botMsgDiv.innerHTML = \`<span class="bot-label">\${BOT_NAME}</span> <span class="ai-content">...</span>\`;
+            chatMsgs.appendChild(botMsgDiv);
+            const contentSpan = botMsgDiv.querySelector('.ai-content');
+
+            while (true) {
+              const { value, done } = await reader.read();
+              
+              if (done) {
+                 if (receivedContent) {
+                     const feedbackHtml = \`
+                        <div class="jammetry-feedback-box" id="feedback-\${messageId}">
+                            <button class="jammetry-feedback-btn" onclick="submitFeedback('\${messageId}', 'good', this)">👍</button>
+                            <button class="jammetry-feedback-btn" onclick="submitFeedback('\${messageId}', 'bad', this)">👎</button>
+                        </div>
+                     \`;
+                     botMsgDiv.insertAdjacentHTML('beforeend', feedbackHtml);
+                     chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                 }
+                 break;
+              }
+              
+              const chunk = decoder.decode(value, { stream: true });
+              const lines = chunk.split('\\n');
+              
+              for (const line of lines) {
+                if (!line.trim() || line.includes('[DONE]')) continue;
+
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.replace('data: ', ''));
+                    if (data.choices && data.choices[0].delta.content) {
+                      receivedContent = true;
+                      
+                      fullMessageBuffer += data.choices[0].delta.content;
+                      
+                      if (window.marked) {
+                          contentSpan.innerHTML = window.marked.parse(fullMessageBuffer);
+                      } else {
+                          contentSpan.innerHTML = fullMessageBuffer.replace(/\\n/g, '<br>');
+                      }
+                      
+                      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                    }
+                  } catch(err) { }
+                }
+              }
+            }
+          } catch (err) {
+            if (!receivedContent) {
+                chatMsgs.innerHTML += \`<div style="color:red; font-size:12px; padding-top: 5px;">Error: Could not connect to assistant.</div>\`;
+            }
+          }
+        }
+      };
+
+      window.submitFeedback = async (msgId, rating, btnElement) => {
+          const box = document.getElementById(\`feedback-\${msgId}\`);
+          try {
+              const res = await fetch(\`\${LIVE_WEBHOOK_URL}/api/submit-feedback\`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ message_id: msgId, rating: rating })
+              });
+
+              if (!res.ok) throw new Error("Network response was not ok");
+
+              box.innerHTML = \`
+                <button class="jammetry-feedback-btn active-\${rating}" disabled>
+                    \${rating === 'good' ? '👍' : '👎'}
+                </button>
+                <span class="jammetry-feedback-thanks">Thanks for the feedback!</span>
+              \`;
+          } catch (err) {
+              console.error("Failed to submit feedback:", err);
+          }
+      };
+
+    })();
+  `;
+
+  return new Response(jsCode, {
+    headers: {
+      "Content-Type": "application/javascript",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-cache, no-store, must-revalidate"
+    }
+  });
+};

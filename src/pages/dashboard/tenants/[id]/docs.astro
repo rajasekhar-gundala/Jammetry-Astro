@@ -1,0 +1,28 @@
+---
+// 👇 THE FIX: Exactly 4 levels up to reach the 'src' folder, not 5!
+import Layout from '../../../../layouts/Layout.astro';
+import DocsManager from '../../../../components/DocsManager.jsx';
+
+const user = Astro.locals.user;
+const { id } = Astro.params;
+
+// Optional but highly recommended: Kick them out if their session expired
+if (!user) {
+    return Astro.redirect('/login');
+}
+
+// VIP Check: Super Admins, Pro plans, and All-in-One users get true
+const ADMIN_EMAILS = ['rajaseg@outlook.com', 'rajaseg@gmail.com'];
+const isSuperAdmin = ADMIN_EMAILS.includes(user.email);
+const isProUser = isSuperAdmin || user?.plan === 'pro' || user?.app_context === 'all-in-one';
+---
+
+<Layout title="Docs & AI Manager">
+    <main class="p-8 max-w-4xl mx-auto">
+        <DocsManager 
+            client:load 
+            tenantId={id} 
+            isPro={isProUser} 
+        />
+    </main>
+</Layout>

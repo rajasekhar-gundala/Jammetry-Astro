@@ -1,0 +1,37 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  hideNav?: boolean; 
+}
+
+const { title, hideNav = false } = Astro.props;
+const user = Astro.locals.user;
+
+// 👉 1. Define who the Super Admins are!
+const ADMIN_EMAILS = ['rajaseg@outlook.com']; // Add your exact login email here
+const isSuperAdmin = user && ADMIN_EMAILS.includes(user.email);
+
+const pathname = Astro.url.pathname;
+const isDashboardArea = pathname.startsWith('/dashboard');
+
+// 👉 2. Only consider it the Admin Area if the URL is right AND they are on the whitelist!
+const isAdminArea = pathname.startsWith('/admin') && isSuperAdmin;
+
+// Hide nav on login pages, or if a regular user tries to type /admin in the URL
+const showNav = !hideNav && (isDashboardArea || isAdminArea);
+
+const getLinkStyle = (path: string) => {
+    const isActive = pathname.startsWith(path);
+    return isActive 
+        ? "text-sm font-bold text-blue-700 bg-blue-50 px-3 py-2 rounded-lg" 
+        : "text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors";
+};
+
+// ... rest of your HTML stays exactly the same!
+
+// src/pages/logout.astro
+Astro.cookies.delete('pb_auth', { path: '/' });
+return Astro.redirect('/login');
+---

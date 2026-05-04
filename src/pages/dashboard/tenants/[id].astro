@@ -1,0 +1,216 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+
+const { id } = Astro.params;
+const pb = Astro.locals.pb;
+
+let tenant;
+const isSuccess = Astro.url.searchParams.get('success') === 'true';
+const isTrainSuccess = Astro.url.searchParams.get('train_success') === 'true';
+const isTrainError = Astro.url.searchParams.get('train_error') === 'true';
+
+try {
+    tenant = await pb.collection('tenants').getOne(id as string);
+} catch (e) {
+    return Astro.redirect('/dashboard/tenants');
+}
+
+// Check training status
+const trainingStatus = tenant.training_status || 'idle';
+const isProcessing = trainingStatus === 'processing';
+const isCompleted = trainingStatus === 'completed'; // 👉 Added new check
+
+// Extract settings safely
+const settings = tenant.settings || {};
+const botName = settings.bot_name || 'AI Assistant';
+const themeColor = settings.theme_color || '#2563eb';
+const welcomeMessage = settings.welcome_message || 'Hello! How can I help you today?';
+const systemPrompt = settings.system_prompt || 'You are a helpful and polite customer support assistant.';
+---
+
+<Layout title={`Configure ${tenant.name}`}>
+  <main class="p-8 max-w-5xl mx-auto">
+    <div class="mb-8">
+        <a href="/dashboard/tenants" class="text-blue-600 hover:underline text-sm font-semibold mb-2 inline-block">← Back to Dashboard</a>
+        <h1 class="text-3xl font-bold text-gray-900">Configure {tenant.name}</h1>
+        <p class="text-gray-500">{tenant.domain}</p>
+    </div>
+
+    {isSuccess && (
+        <div class="notification-banner bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <strong>Success!</strong> Settings have been saved.
+        </div>
+    )}
+    {isTrainSuccess && (
+        <div class="notification-banner bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            <strong>Training Started!</strong> The AI is currently crunching your data.
+        </div>
+    )}
+    {isTrainError && (
+        <div class="notification-banner bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+            <strong>Error:</strong> Failed to connect to the training server. Please try again.
+        </div>
+    )}
+    {/* 👉 NEW COMPLETED BANNER */}
+    {isCompleted && (
+        <div class="notification-banner bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <strong>Training Complete!</strong> The AI is successfully trained and ready to answer questions.
+        </div>
+    )}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+            <h2 class="text-xl font-bold mb-6 text-gray-900">Chatbot Settings</h2>
+            
+            <form method="POST" action="/api/update-tenant" class="space-y-6">
+                <input type="hidden" name="id" value={tenant.id} />
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Company Name</label>
+                        <input name="name" value={tenant.name} required class="border border-gray-300 p-3 w-full rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Website URL</label>
+                        <input name="domain" value={tenant.domain} required class="border border-gray-300 p-3 w-full rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Bot Name</label>
+                        <input name="bot_name" value={botName} required class="border border-gray-300 p-3 w-full rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1">Theme Color</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" name="theme_color" value={themeColor} class="h-12 w-12 rounded cursor-pointer border-0 p-0" />
+                            <span class="text-sm font-mono text-gray-500">{themeColor}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Welcome Message</label>
+                    <input name="welcome_message" value={welcomeMessage} required class="border border-gray-300 p-3 w-full rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">System Prompt</label>
+                    <textarea name="system_prompt" rows="3" required class="border border-gray-300 p-3 w-full rounded-lg outline-none focus:ring-2 focus:ring-blue-500">{systemPrompt}</textarea>
+                </div>
+
+                <div class="pt-4 border-t border-gray-100 flex justify-end">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold shadow-sm transition-all">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-gray-900 rounded-xl p-6 text-white shadow-lg">
+                <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    Install Widget
+                </h3>
+                <p class="text-gray-400 text-sm mb-4">Paste this code before the closing <code class="text-blue-300">&lt;/body&gt;</code> tag.</p>
+                <div class="bg-black/50 p-4 rounded-lg border border-gray-700">
+                    <code class="text-xs text-green-400 break-all font-mono">
+                        &lt;script src="https://jammetry.com/widget/{tenant.id}.js"&gt;&lt;/script&gt;
+                    </code>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-3 bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+            <h2 class="text-xl font-bold mb-6 text-gray-900 flex items-center gap-2">
+                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                Knowledge Base Training
+            </h2>
+            
+            {isProcessing ? (
+                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-10 text-center flex flex-col items-center justify-center">
+                    <svg class="animate-spin text-indigo-600 w-12 h-12 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <h3 class="text-xl font-bold text-indigo-900 mb-2">Training in Progress</h3>
+                    <p class="text-indigo-700 text-sm max-w-md mx-auto">Your AI is currently processing the data and updating its vector database. This usually takes a few minutes. The page will auto-refresh when complete.</p>
+                </div>
+            ) : (
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                        <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                            Scrape Website
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-4">Provide a URL for the crawler to read.</p>
+                        <form method="POST" action="/api/train-bot" class="space-y-3">
+                            <input type="hidden" name="id" value={tenant.id} />
+                            <input type="hidden" name="training_type" value="url" />
+                            <input type="url" name="source" required placeholder="https://example.com" class="border border-gray-300 p-2.5 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Scrape & Train</button>
+                        </form>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                        <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                            Upload Document
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-4">Upload a PDF, DOCX, or TXT file.</p>
+                        <form method="POST" action="/api/train-bot" enctype="multipart/form-data" class="space-y-3">
+                            <input type="hidden" name="id" value={tenant.id} />
+                            <input type="hidden" name="training_type" value="file" />
+                            <input type="file" name="file" accept=".pdf,.docx,.txt" required class="border border-gray-300 p-2 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white" />
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Upload & Train</button>
+                        </form>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                        <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+                            Sync API Endpoint
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-4">Fetch JSON data from an external API.</p>
+                        <form method="POST" action="/api/train-bot" class="space-y-3">
+                            <input type="hidden" name="id" value={tenant.id} />
+                            <input type="hidden" name="training_type" value="api" />
+                            <input type="url" name="source" required placeholder="https://api.example.com/docs" class="border border-gray-300 p-2.5 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Sync & Train</button>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+
+    </div>
+  </main>
+</Layout>
+
+<script is:inline define:vars={{ isProcessing }}>
+    // 1. Clean URL
+    if (window.location.search.includes('success=true') || window.location.search.includes('train_')) {
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
+
+    // 2. Fade banners
+    setTimeout(() => {
+        const banners = document.querySelectorAll('.notification-banner');
+        banners.forEach(banner => {
+            banner.style.transition = "opacity 0.5s ease";
+            banner.style.opacity = '0';
+            setTimeout(() => banner.style.display = 'none', 500); 
+        });
+    }, 6000);
+
+    // 3. Polling
+    if (isProcessing) {
+        setTimeout(() => {
+            window.location.reload();
+        }, 5000);
+    }
+</script>

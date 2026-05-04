@@ -1,0 +1,243 @@
+---
+import ChatLayout from '../layouts/ChatLayout.astro';
+import { marked } from 'marked';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+
+const url = new URL(Astro.request.url);
+const activeChatId = url.searchParams.get('id');
+const currentConversationId = activeChatId || Math.random().toString(36).substring(7);
+
+let recentChats = [];
+let currentMessages = [];
+
+try {
+  const historyRes = await fetch(`http://pocketbase:8080/api/collections/messages/records?filter=(userId='${user.id}')&sort=-created`);
+  const historyData = await historyRes.json();
+
+  if (historyData.items) {
+    if (activeChatId) {
+      // 👇 FIX: Added .reverse() so the oldest messages render at the top and newest at the bottom
+      currentMessages = historyData.items.filter((m: any) => m.conversationId === activeChatId).reverse();
+    }
+
+    const grouped: Record<string, any> = {};
+    historyData.items.forEach((msg: any) => {
+      if (!grouped[msg.conversationId]) {
+        grouped[msg.conversationId] = {
+          id: msg.conversationId,
+          title: msg.role === 'user' ? msg.content : 'New Chat',
+          updated: msg.updated
+        };
+      } else if (msg.role === 'user' && grouped[msg.conversationId].title === 'New Chat') {
+        grouped[msg.conversationId].title = msg.content;
+      }
+    });
+
+    recentChats = Object.values(grouped).sort((a: any, b: any) => new Date(b.updated).getTime() - new Date(a.updated).getTime());
+  }
+} catch (e) {
+  console.error("Could not fetch chat history", e);
+}
+---
+
+<ChatLayout title="Chat">
+  <Fragment slot="sidebar">
+    <a href="/chat" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded-lg mb-6 shadow-sm transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+      New Chat
+    </a>
+
+    <div class="flex-1 overflow-y-auto space-y-2">
+      <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Recent</h3>
+      {recentChats.map((chat) => (
+        <a href={`/chat?id=${chat.id}`} class={`block px-3 py-2 rounded-md text-sm truncate transition ${activeChatId === chat.id ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}>
+          {chat.title.length > 28 ? chat.title.substring(0, 28) + '...' : chat.title}
+        </a>
+      ))}
+    </div>
+
+    <div class="p-4 border-t border-gray-800 bg-gray-900/50">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-sm font-bold">
+          {user.email.charAt(0).toUpperCase()}
+        </div>
+        <div class="text-sm font-medium truncate flex-1">{user.email}</div>
+      </div>
+      <div class="flex gap-3 text-xs font-medium px-1">
+        <a href="/profile" class="text-gray-400 hover:text-white transition flex items-center gap-1">Profile</a>
+
+        {/* 👇 NEW: Conditionally show the Extraction link based on user permissions */}
+        {['pdf-extract', 'all-in-one'].includes(user.app_context) && (
+          <a href="/extract" class="text-gray-400 hover:text-white transition flex items-center gap-1">Extraction</a>
+        )}
+
+        <a href="/logout" class="text-red-400/80 hover:text-red-400 transition flex items-center gap-1">Logout</a>
+      </div>
+    </div>
+  </Fragment>
+
+  <Fragment slot="main">
+    <header class="h-16 flex items-center justify-between px-6 border-b border-gray-800 bg-gray-900 z-10">
+      <h2 class="text-lg font-medium text-gray-200">Local RAG Chat</h2>
+      <label class="cursor-pointer flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm py-2 px-4 rounded-md transition">
+        <span>Upload Document</span>
+        <input type="file" id="pdf-upload" class="hidden" accept=".pdf,.doc,.docx,.txt,.md,.csv,.xls,.xlsx" />
+      </label>
+    </header>
+
+    <div id="chat-config" data-userid={user?.id} data-conversation={currentConversationId} class="hidden"></div>
+
+    <div id="chat-window" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth">
+      <div id="messages-container" class="max-w-3xl mx-auto space-y-6">
+        {currentMessages.length === 0 ? (
+          <div class="flex gap-4 max-w-3xl mx-auto">
+            <div class="w-8 h-8 rounded-sm bg-blue-600 flex items-center justify-center text-white font-bold text-xs">AI</div>
+            <div class="prose prose-invert text-gray-300"><p>Hello! Upload a document to begin.</p></div>
+          </div>
+        ) : (
+          currentMessages.map((msg) => (
+            msg.role === 'user' ? (
+              <div class="flex gap-4 max-w-3xl mx-auto justify-end">
+                <div class="prose prose-invert bg-gray-800 text-gray-200 px-4 py-3 rounded-2xl rounded-tr-sm">
+                  <p class="m-0" set:html={msg.content.replace(/\n/g, '<br>')} />
+                </div>
+              </div>
+            ) : (
+              <div class="flex gap-4 max-w-3xl mx-auto">
+                <div class="w-8 h-8 rounded-sm bg-blue-600 flex items-center justify-center text-white font-bold text-xs">AI</div>
+                <div class="prose prose-invert text-gray-300">
+                  <div class="m-0" set:html={marked.parse(msg.content)} />
+                </div>
+              </div>
+            )
+          ))
+        )}
+      </div>
+    </div>
+
+    <div class="p-4 bg-gray-900">
+      <div class="max-w-3xl mx-auto relative">
+        <form id="chat-form" class="relative flex items-center">
+          <textarea id="chat-input" rows="1" class="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none" placeholder="Ask about your documents..."></textarea>
+          <!-- Added id="send-btn" to the button for easy targeting -->
+          <button id="send-btn" type="submit" class="absolute right-2 bottom-2 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition">
+             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </Fragment>
+</ChatLayout>
+
+<script>
+  import { marked } from 'marked';
+
+  const config = document.getElementById('chat-config').dataset;
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('send-btn');
+  const messagesContainer = document.getElementById('messages-container');
+  const chatWindow = document.getElementById('chat-window');
+  const pdfUpload = document.getElementById('pdf-upload');
+
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+
+  // 👇 NEW: Enter to submit logic
+  chatInput.addEventListener('keydown', (e) => {
+    // If Enter is pressed without the Shift key
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Stop the textarea from creating a new line
+      
+      // Only submit if there is actually text to send
+      if (chatInput.value.trim() !== '') {
+        // Trigger the form's submit listener by clicking the button
+        sendBtn.click();
+      }
+    }
+  });
+
+  pdfUpload.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    appendSystemMessage(`Processing ${file.name}...`);
+    const formData = new FormData();
+    formData.append("document", file);
+    formData.append("userId", config.userid);
+
+    try {
+      const res = await fetch("https://api.rajasekhar.digital/api/upload", { method: "POST", body: formData });
+      if (res.ok) appendSystemMessage(`✅ Processed ${file.name}.`);
+      else appendSystemMessage(`❌ Upload failed.`);
+    } catch (err) { appendSystemMessage(`❌ Error.`); }
+  });
+
+  chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const message = chatInput.value.trim();
+    if (!message) return;
+    chatInput.value = '';
+    appendUserMessage(message);
+
+    const streamTargetId = `ai-msg-${Date.now()}`;
+    appendAIMessageContainer(streamTargetId);
+    const streamEl = document.getElementById(streamTargetId);
+
+    try {
+      const response = await fetch("https://api.rajasekhar.digital/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, userId: config.userid, conversationId: config.conversation })
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      let first = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const events = decoder.decode(value).split("\n\n");
+        for (const event of events) {
+          if (event.startsWith("data: ")) {
+            const data = event.replace("data: ", "");
+            if (data === "[DONE]") {
+                if (!window.location.search.includes('id=')) {
+                    window.history.pushState({}, '', `/chat?id=${config.conversation}`);
+                }
+                return;
+            }
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.text) {
+                if (first) { streamEl.innerHTML = ""; streamEl.classList.remove('italic', 'text-gray-500'); first = false; }
+                fullText += parsed.text;
+                streamEl.innerHTML = marked.parse(fullText);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+              }
+            } catch (err) {}
+          }
+        }
+      }
+    } catch (err) { streamEl.innerText = "Error connecting to AI."; }
+  });
+
+  function appendUserMessage(text) {
+    const html = `<div class="flex gap-4 max-w-3xl mx-auto justify-end"><div class="prose prose-invert bg-gray-800 text-gray-200 px-4 py-3 rounded-2xl rounded-tr-sm"><p class="m-0">${text.replace(/\n/g, '<br>')}</p></div></div>`;
+    messagesContainer.insertAdjacentHTML('beforeend', html);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  function appendAIMessageContainer(id) {
+    const html = `<div class="flex gap-4 max-w-3xl mx-auto"><div class="w-8 h-8 rounded-sm bg-blue-600 flex items-center justify-center text-white font-bold text-xs">AI</div><div class="prose prose-invert text-gray-300 w-full"><div id="${id}" class="italic text-gray-500">Thinking...</div></div></div>`;
+    messagesContainer.insertAdjacentHTML('beforeend', html);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  function appendSystemMessage(text) {
+    messagesContainer.insertAdjacentHTML('beforeend', `<div class="text-center text-xs text-gray-500 my-4">${text}</div>`);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+</script>

@@ -1,0 +1,28 @@
+---
+const { tenantId } = Astro.props;
+---
+<div class="p-4 border-2 border-dashed border-gray-300 rounded-lg">
+    <h3 class="font-bold mb-2">Upload Knowledge Base Docs</h3>
+    <input type="file" id="doc-upload" accept=".pdf,.docx,.txt" class="mb-4 block w-full text-sm" />
+    <button id="upload-btn" class="bg-blue-600 text-white px-4 py-2 rounded">
+        Upload & Index
+    </button>
+</div>
+
+<script define:vars={{ tenantId }}>
+    document.getElementById('upload-btn').onclick = async () => {
+        const fileInput = document.getElementById('doc-upload');
+        if (!fileInput.files[0]) return alert("Select a file first");
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        const res = await fetch(`https://api.jammetry.com/ingest/upload/${tenantId}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await res.json();
+        alert(`Success! Indexed ${result.chunks_indexed} chunks.`);
+    };
+</script>

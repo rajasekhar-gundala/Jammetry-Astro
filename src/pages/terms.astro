@@ -1,0 +1,30 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/global.css';
+---
+
+<Layout title="Terms of Service - Jammetry AI">
+  <main class="max-w-3xl mx-auto py-20 px-6">
+    <h1 class="text-4xl font-bold mb-8 text-gray-900">Terms of Service</h1>
+    <p class="text-gray-500 mb-10 italic">Effective Date: March 29, 2026</p>
+    
+    <div class="prose prose-blue max-w-none text-gray-700 space-y-6">
+      <section>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">1. Service Use</h2>
+        <p>Jammetry AI provides a multi-tenant AI automation platform. The Starter tier is limited to 100 chat messages per month. Exceeding this limit will result in a temporary service pause until the next billing cycle or upgrade.</p>
+      </section>
+
+      <section>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">2. Prohibited Content</h2>
+        <p>Users are prohibited from training the AI on illegal, harmful, or copyrighted material they do not own. We reserve the right to terminate tenants who violate these terms.</p>
+      </section>
+
+      <section>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">3. Limitation of Liability</h2>
+        <p>AI responses are generated based on uploaded context. We are not responsible for any inaccuracies produced by the LLM or any service downtime resulting from VPS maintenance.</p>
+      </section>
+
+      <a href="/" class="inline-block mt-8 text-blue-600 font-bold hover:underline">← Back to Home</a>
+    </div>
+  </main>
+</Layout>

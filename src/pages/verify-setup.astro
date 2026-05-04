@@ -1,0 +1,95 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PocketBase from 'pocketbase';
+import '../styles/global.css';
+
+const token = Astro.url.searchParams.get('token');
+let errorMessage = '';
+let targetUserId = '';
+let targetUserEmail = '';
+
+const pb = new PocketBase("http://pocketbase:8080");
+
+// 1. Verify the token exists and is valid on page load
+if (token) {
+  try {
+    // Authenticate as admin to search users by token
+    await pb.collection('_superusers').authWithPassword(
+        process.env.PB_ADMIN_EMAIL!, 
+        process.env.PB_ADMIN_PASSWORD!
+    );
+    
+    const userRecord = await pb.collection('users').getFirstListItem(`setup_token="${token}"`);
+    targetUserId = userRecord.id;
+    targetUserEmail = userRecord.email;
+  } catch (e) {
+    return Astro.redirect('/login?error=invalid-token');
+  }
+} else {
+  return Astro.redirect('/login');
+}
+
+// 2. Handle the Form Submission to set password and verify
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    const password = data.get('password')?.toString();
+    const passwordConfirm = data.get('passwordConfirm')?.toString();
+
+    if (!password || password.length < 8) {
+      errorMessage = "Password must be at least 8 characters long.";
+    } else if (password !== passwordConfirm) {
+      errorMessage = "Passwords do not match.";
+    } else {
+      // Update the user: set password, mark verified, and CLEAR the setup_token
+      await pb.collection('users').update(targetUserId, {
+        password: password,
+        passwordConfirm: passwordConfirm,
+        verified: true,
+        setup_token: "" // Invalidates the link
+      });
+      
+      // Redirect straight to login with success message
+      return Astro.redirect('/login?message=password-set');
+    }
+  } catch (e: any) {
+    console.error("Setup error:", e.message);
+    errorMessage = "Failed to update account. Please try again.";
+  }
+}
+---
+
+<Layout title="Complete Setup - Jammetry AI" hideNav={true}>
+  <main class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+    <div class="max-w-md w-full bg-white p-10 rounded-2xl shadow-xl border border-gray-100">
+        
+        <div class="text-center mb-8">
+          <h2 class="text-3xl font-extrabold text-gray-900">Create Password</h2>
+          <p class="mt-2 text-sm text-gray-600">You are setting up the account for <strong>{targetUserEmail}</strong></p>
+        </div>
+        
+        {errorMessage && (
+          <div class="mb-6 bg-red-50 text-red-700 p-4 rounded-lg text-sm border border-red-100">
+            {errorMessage}
+          </div>
+        )}
+
+        <form method="POST" class="space-y-6">
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+              <input name="password" type="password" required minlength="8" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <input name="passwordConfirm" type="password" required minlength="8" class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-3 px-4 text-sm font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
+            Activate Account
+          </button>
+        </form>
+    </div>
+  </main>
+</Layout>

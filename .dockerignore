@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# Python
+**/__pycache__
+**/.venv
+**/*.pyc
+
+# Node / Astro
+**/node_modules
+**/dist
+**/.astro
+
+# Local Data (Should be handled by Volumes, not built into image)
+pb_data/
+models/
+storage/
+.env
+
+# Documentation
+README.md
+setup.sh

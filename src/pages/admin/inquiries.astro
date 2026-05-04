@@ -1,0 +1,106 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const user = Astro.locals.user;
+
+// 👉 THE BOUNCER: Kick them to the dashboard if they aren't logged in OR aren't on the list
+const ADMIN_EMAILS = ['rajaseg@outlook.com'];
+if (!user || !ADMIN_EMAILS.includes(user.email)) {
+    return Astro.redirect('/dashboard/tenants'); 
+}
+
+const pb = Astro.locals.pb;
+let inquiries: any[] = [];
+let fetchError = '';
+
+try {
+    // 👉 THE FIX: Point to the new 'platform_inquiries' collection!
+    inquiries = await pb.collection('platform_inquiries').getFullList({
+        sort: '-created'
+    });
+} catch (err: any) {
+    console.error("Error fetching inquiries:", err.message);
+    fetchError = "Could not load inquiries. Please check API rules or collection name.";
+}
+---
+
+<Layout title="Contact Inquiries | Admin">
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Contact Inquiries</h1>
+            <p class="text-gray-600">Manage leads and support tickets from your website.</p>
+        </div>
+        <div class="bg-blue-50 text-blue-800 px-4 py-2 rounded-lg font-bold border border-blue-100">
+            Total: {inquiries.length}
+        </div>
+    </div>
+
+    {fetchError && (
+        <div class="bg-red-50 text-red-600 p-4 rounded-lg mb-6 border border-red-100">
+            {fetchError}
+        </div>
+    )}
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {inquiries.length === 0 ? (
+            <div class="text-center py-16 px-6 text-gray-500">
+                No inquiries found yet. Your marketing is just getting started!
+            </div>
+        ) : (
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-4">Date</th>
+                            <th class="px-6 py-4">Sender</th>
+                            <th class="px-6 py-4">Subject & Message</th>
+                            <th class="px-6 py-4">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {inquiries.map((inq) => (
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                {/* Added align-top so cells don't vertically center when messages expand */}
+                                <td class="px-6 py-4 whitespace-nowrap text-gray-500 align-top">
+                                    {new Date(inq.created).toLocaleDateString()}
+                                </td>
+                                <td class="px-6 py-4 align-top">
+                                    <div class="font-bold text-gray-900">{inq.name}</div>
+                                    <a href={`mailto:${inq.email}`} class="text-blue-600 hover:underline">{inq.email}</a>
+                                </td>
+                                <td class="px-6 py-4 align-top">
+                                    <div class="font-bold text-gray-900 mb-1">{inq.subject}</div>
+                                    
+                                    {/* 👉 THE FIX: Replace truncate with line-clamp and an inline toggle button */}
+                                    <div class="text-gray-600 max-w-lg">
+                                        <p id={`msg-${inq.id}`} class="line-clamp-2 whitespace-pre-wrap">{inq.message}</p>
+                                        
+                                        {/* Only show the button if the message is actually long enough to need it */}
+                                        {inq.message && inq.message.length > 90 && (
+                                            <button 
+                                                type="button"
+                                                onclick={`document.getElementById('msg-${inq.id}').classList.toggle('line-clamp-2'); this.innerText = this.innerText === 'Read more' ? 'Show less' : 'Read more';`}
+                                                class="text-blue-600 hover:text-blue-800 text-xs font-bold mt-1.5 focus:outline-none transition-colors"
+                                            >
+                                                Read more
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 align-top">
+                                    {inq.is_resolved ? (
+                                        <span class="bg-emerald-100 text-emerald-800 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide">Resolved</span>
+                                    ) : (
+                                        <span class="bg-amber-100 text-amber-800 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide">Pending</span>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+    </div>
+  </main>
+</Layout>

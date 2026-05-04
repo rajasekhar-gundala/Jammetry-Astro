@@ -1,0 +1,164 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PocketBase from 'pocketbase';
+
+const user = Astro.locals.user;
+
+const ADMIN_EMAILS = ['rajaseg@outlook.com'];
+if (!user || !ADMIN_EMAILS.includes(user.email)) {
+    return Astro.redirect('/dashboard/tenants'); 
+}
+
+let allUsers: any[] = [];
+let allTenants: any[] = [];
+let fetchError = '';
+
+const pbAdmin = new PocketBase(process.env.PB_URL || "http://pocketbase:8080");
+const adminEmail = process.env.PB_ADMIN_EMAIL;
+const adminPass = process.env.PB_ADMIN_PASSWORD;
+
+const formatApp = (app: string) => {
+    const apps: Record<string, { label: string, color: string }> = {
+        'jammetry': { label: 'Knowledge Base', color: 'bg-purple-100 text-purple-800' },
+        'daas': { label: 'DaaS', color: 'bg-orange-100 text-orange-800' },
+        'all-in-one': { label: 'All-in-One', color: 'bg-indigo-100 text-indigo-800' },
+    };
+    return apps[app] || { label: app || 'Unknown', color: 'bg-gray-100 text-gray-800' };
+};
+
+if (!adminEmail || !adminPass) {
+    fetchError = "Super Admin credentials are missing from your .env file.";
+} else {
+    try {
+        await pbAdmin.collection('_superusers').authWithPassword(adminEmail, adminPass);
+        
+        if (Astro.request.method === 'POST') {
+            const formData = await Astro.request.formData();
+            const deleteUserId = formData.get('deleteUserId')?.toString();
+            
+            if (deleteUserId) {
+                await pbAdmin.collection('users').delete(deleteUserId);
+            }
+        }
+
+        allUsers = await pbAdmin.collection('users').getFullList({ 
+            filter: 'app_context = "jammetry" || app_context = "daas" || app_context = "all-in-one"',
+            sort: '-created' 
+        });
+        
+        allTenants = await pbAdmin.collection('tenants').getFullList();
+        
+    } catch (err: any) {
+        console.error("Error with admin action:", err.message);
+        fetchError = "Could not load or update users. Please check PocketBase connection.";
+    }
+}
+
+const usersWithStats = allUsers.map(u => {
+    const userTenants = allTenants.filter(t => t.owner === u.id);
+    const hasPro = userTenants.some(t => t.plan_type === 'pro');
+    
+    // 👉 Extract Tenant IDs into a string
+    const tenantIds = userTenants.map(t => t.id).join(', ');
+    
+    return {
+        ...u,
+        tenantCount: userTenants.length,
+        tenantIds: tenantIds || 'None', // Inject IDs here
+        isPro: hasPro,
+        appDisplay: formatApp(u.app_context) 
+    };
+});
+---
+
+<Layout title="User Management | Admin">
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    
+    <div class="mb-8">
+        <h1 class="text-3xl font-extrabold text-gray-900 mb-2">Jammetry & DaaS Users</h1>
+        <p class="text-gray-600">Manage registered accounts and monitor tenant IDs.</p>
+    </div>
+
+    {fetchError && (
+        <div class="bg-red-50 text-red-600 p-4 rounded-lg mb-6 border border-red-100">
+            {fetchError}
+        </div>
+    )}
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                    <tr>
+                        <th class="px-6 py-4">Joined Date</th>
+                        <th class="px-6 py-4">User Email</th>
+                        <th class="px-6 py-4">Tenant ID(s)</th> <!-- 👉 New Column -->
+                        <th class="px-6 py-4">Registered App</th>
+                        <th class="px-6 py-4">Bots/Docs</th>
+                        <th class="px-6 py-4">Highest Plan</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {usersWithStats.length === 0 ? (
+                        <tr>
+                            <td colspan="8" class="px-6 py-8 text-center text-gray-500">No users found.</td>
+                        </tr>
+                    ) : (
+                        usersWithStats.map((u) => (
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                    {new Date(u.created).toLocaleDateString()}
+                                </td>
+                                <td class="px-6 py-4 font-bold text-gray-900">
+                                    {u.email}
+                                </td>
+                                <!-- 👉 Render Tenant IDs -->
+                                <td class="px-6 py-4">
+                                    <code class="text-[10px] bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded text-gray-600">
+                                        {u.tenantIds}
+                                    </code>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${u.appDisplay.color}`}>
+                                        {u.appDisplay.label}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-gray-600">
+                                    {u.tenantCount} active
+                                </td>
+                                <td class="px-6 py-4">
+                                    {u.isPro ? (
+                                        <span class="text-emerald-600 font-bold flex items-center gap-1"><span class="text-lg leading-none">★</span> PRO</span>
+                                    ) : (
+                                        <span class="text-gray-500 font-medium capitalize">{u.plan || 'Free'}</span>
+                                    )}
+                                </td>
+                                <td class="px-6 py-4">
+                                    {u.verified ? (
+                                        <span class="bg-emerald-100 text-emerald-800 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide">Verified</span>
+                                    ) : (
+                                        <span class="bg-gray-100 text-gray-600 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide">Unverified</span>
+                                    )}
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <form method="POST" onsubmit={`return confirm('Are you sure you want to permanently delete ${u.email}? This cannot be undone.');`}>
+                                        <input type="hidden" name="deleteUserId" value={u.id} />
+                                        <button 
+                                            type="submit" 
+                                            class="text-red-600 hover:text-red-900 font-medium text-xs bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded transition-colors"
+                                        >
+                                            Delete
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+        </div>
+    </div>
+  </main>
+</Layout>

@@ -1,0 +1,43 @@
+---
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  canonicalURL?: URL | string;
+}
+
+const {
+  title = "AI Copilot | Enterprise PDF Extraction & Secure Document Chat",
+  description = "Securely extract sales data from invoices with Gemini 1.5 AI and chat with your private documents using advanced RAG. Enterprise-grade data protection for your PDF workflows.",
+  image = "/og-image.png", // Ensure you have a social share image in /public
+  canonicalURL = new URL(Astro.url.pathname, Astro.site),
+} = Astro.props;
+
+const siteTitle = title.includes("AI Copilot") ? title : `${title} | AI Copilot`;
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="generator" content={Astro.generator} />
+
+<link rel="canonical" href={canonicalURL} />
+
+<title>{siteTitle}</title>
+<meta name="title" content={siteTitle} />
+<meta name="description" content={description} />
+<meta name="keywords" content="AI PDF Extraction, Sales Invoice Data Extraction, Secure Document Chat, Data Protection AI, Gemini 1.5 PDF OCR, RAG Chatbot, Enterprise Document AI" />
+
+<meta property="og:type" content="website" />
+<meta property="og:url" content={Astro.url} />
+<meta property="og:title" content={siteTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={new URL(image, Astro.url)} />
+
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:url" content={Astro.url} />
+<meta property="twitter:title" content={siteTitle} />
+<meta property="twitter:description" content={description} />
+<meta property="twitter:image" content={new URL(image, Astro.url)} />
+
+<meta name="robots" content="index, follow" />

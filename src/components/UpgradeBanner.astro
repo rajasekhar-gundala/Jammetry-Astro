@@ -1,0 +1,18 @@
+---
+// src/components/UpgradeBanner.astro
+const { title = "Upgrade to Pro", description = "This feature requires a Professional or Enterprise plan." } = Astro.props;
+---
+
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center max-w-2xl mx-auto my-12">
+    <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+        </svg>
+    </div>
+    <h2 class="text-2xl font-bold text-white mb-2">{title}</h2>
+    <p class="text-gray-400 mb-6">{description}</p>
+    
+    <a href="/pricing" class="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-opacity-90 transition">
+        View Pricing Plans
+    </a>
+</div>

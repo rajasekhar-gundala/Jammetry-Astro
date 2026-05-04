@@ -1,0 +1,76 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/global.css';
+
+// 1. Grab the dynamic ID passed from our API route
+const tenantId = Astro.url.searchParams.get('id') || 'PENDING_ID';
+
+const dashboardUrl = "/dashboard/tenants";
+const widgetUrl = `https://admin.jammetry.com/widget/${tenantId}.js`;
+---
+
+<Layout title="Welcome to Jammetry AI">
+  <main class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
+    <div class="max-w-2xl w-full bg-white p-10 rounded-3xl shadow-2xl border border-gray-100 text-center">
+      
+      <div class="mb-8 inline-flex items-center justify-center w-24 h-24 bg-blue-50 text-blue-600 rounded-full text-5xl shadow-inner">
+        🚀
+      </div>
+      
+      <h1 class="text-4xl font-black text-gray-900 mb-4 tracking-tight">Account Verified!</h1>
+      <p class="text-gray-600 text-lg mb-10 leading-relaxed">
+        Your account is now active. Follow the steps below to go live.
+      </p>
+
+      <div class="bg-gray-900 rounded-2xl p-8 text-left mb-10 border border-gray-800 shadow-2xl">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-blue-400 text-xs font-bold uppercase tracking-widest">
+            Step 1: Install the Widget
+          </h3>
+          <button id="copyBtn" class="text-xs bg-gray-800 text-gray-300 px-3 py-1 rounded-lg hover:bg-blue-600 hover:text-white transition-all font-bold">
+            Copy Code
+          </button>
+        </div>
+        
+        <div class="bg-black/50 p-4 rounded-lg border border-gray-700/50">
+          <!-- 2. Inject the dynamic URL here -->
+          <pre id="widgetCode" class="text-green-400 font-mono text-sm overflow-x-auto whitespace-pre-wrap leading-relaxed"><code>&lt;script src="{widgetUrl}"&gt;&lt;/script&gt;</code></pre>
+        </div>
+        
+        <p class="text-gray-500 text-xs mt-6 flex items-center gap-2">
+          <span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+          Paste this snippet right before the closing <code>&lt;/body&gt;</code> tag of your website.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <a href={dashboardUrl} class="bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
+          Go to Dashboard
+        </a>
+        <a href="/" class="bg-gray-100 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-200 transition-all">
+          Back to Home
+        </a>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<script is:inline>
+  const copyBtn = document.getElementById('copyBtn');
+  const codeBlock = document.getElementById('widgetCode');
+
+  if (copyBtn && codeBlock) {
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(codeBlock.innerText).then(() => {
+        const originalText = copyBtn.innerText;
+        copyBtn.innerText = '✅ Copied!';
+        copyBtn.classList.add('bg-green-600');
+        
+        setTimeout(() => { 
+          copyBtn.innerText = originalText;
+          copyBtn.classList.remove('bg-green-600');
+        }, 2000);
+      });
+    });
+  }
+</script>
