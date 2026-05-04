@@ -2,17 +2,25 @@
 import SEO from '../components/SEO.astro';
 
 const { title } = Astro.props;
+
+// 👇 FIX: Safely construct a guaranteed absolute URL for the SEO component
+const siteBase = process.env.PUBLIC_SITE_URL || Astro.url.origin;
+const canonicalURL = new URL(Astro.url.pathname, siteBase).href;
 ---
 <html lang="en">
   <head>
     <SEO
       title={title}
       description="Chat securely with your private PDFs using advanced RAG and enterprise-grade data protection."
+      // Pass the safe absolute URL to the component
+      url={canonicalURL} 
     />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} - AI Docpilot</title>
+    
+    {/* Brand updated to Jammetry AI */}
+    <title>{title} | Jammetry AI</title>
   </head>
   <body class="bg-gray-900 text-gray-100 font-sans antialiased overflow-hidden">
     <div class="flex h-screen w-full">

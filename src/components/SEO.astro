@@ -3,17 +3,21 @@ interface Props {
   title?: string;
   description?: string;
   image?: string;
-  canonicalURL?: URL | string;
+  canonicalURL?: string | URL;
 }
 
 const {
-  title = "AI Copilot | Enterprise PDF Extraction & Secure Document Chat",
-  description = "Securely extract sales data from invoices with Gemini 1.5 AI and chat with your private documents using advanced RAG. Enterprise-grade data protection for your PDF workflows.",
-  image = "/og-image.png", // Ensure you have a social share image in /public
-  canonicalURL = new URL(Astro.url.pathname, Astro.site),
+  title = "Jammetry AI | Enterprise SaaS Platform",
+  description = "Securely extract sales data, manage vector embeddings, and chat with your private documents using advanced AI. Enterprise-grade workflows.",
+  image = "/og-image.png", 
+  
+  // 👇 FIX: We use Astro.url.href which is guaranteed to exist on every request, 
+  // completely bypassing the need for Astro.site in your astro.config.mjs
+  canonicalURL = Astro.url.href,
 } = Astro.props;
 
-const siteTitle = title.includes("AI Copilot") ? title : `${title} | AI Copilot`;
+// Updated to the unified Jammetry brand
+const siteTitle = title.includes("Jammetry") ? title : `${title} | Jammetry AI`;
 ---
 
 <meta charset="utf-8" />
@@ -26,18 +30,19 @@ const siteTitle = title.includes("AI Copilot") ? title : `${title} | AI Copilot`
 <title>{siteTitle}</title>
 <meta name="title" content={siteTitle} />
 <meta name="description" content={description} />
-<meta name="keywords" content="AI PDF Extraction, Sales Invoice Data Extraction, Secure Document Chat, Data Protection AI, Gemini 1.5 PDF OCR, RAG Chatbot, Enterprise Document AI" />
+<meta name="keywords" content="AI PDF Extraction, Sales Invoice Data Extraction, Secure Document Chat, Jammetry AI, RAG Chatbot, Enterprise Document AI, Vector Database" />
 
 <meta property="og:type" content="website" />
-<meta property="og:url" content={Astro.url} />
+<meta property="og:url" content={Astro.url.href} />
 <meta property="og:title" content={siteTitle} />
 <meta property="og:description" content={description} />
-<meta property="og:image" content={new URL(image, Astro.url)} />
+{/* Safely resolve the image URL using Astro.url.origin to prevent proxy crashes */}
+<meta property="og:image" content={new URL(image, Astro.url.origin).href} />
 
 <meta property="twitter:card" content="summary_large_image" />
-<meta property="twitter:url" content={Astro.url} />
+<meta property="twitter:url" content={Astro.url.href} />
 <meta property="twitter:title" content={siteTitle} />
 <meta property="twitter:description" content={description} />
-<meta property="twitter:image" content={new URL(image, Astro.url)} />
+<meta property="twitter:image" content={new URL(image, Astro.url.origin).href} />
 
 <meta name="robots" content="index, follow" />
