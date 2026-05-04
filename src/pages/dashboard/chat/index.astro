@@ -44,7 +44,7 @@ try {
 
 <ChatLayout title="Chat">
   <Fragment slot="sidebar">
-    <a href="/chat" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded-lg mb-6 shadow-sm transition">
+    <a href="/dashboard/chat" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded-lg mb-6 shadow-sm transition">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
       New Chat
     </a>
@@ -66,11 +66,11 @@ try {
         <div class="text-sm font-medium truncate flex-1">{user.email}</div>
       </div>
       <div class="flex gap-3 text-xs font-medium px-1">
-        <a href="/profile" class="text-gray-400 hover:text-white transition flex items-center gap-1">Profile</a>
+        <a href="/dashboard/profile" class="text-gray-400 hover:text-white transition flex items-center gap-1">Profile</a>
 
         {/* 👇 NEW: Conditionally show the Extraction link based on user permissions */}
         {['pdf-extract', 'all-in-one'].includes(user.app_context) && (
-          <a href="/extract" class="text-gray-400 hover:text-white transition flex items-center gap-1">Extraction</a>
+          <a href="/dashboard/extract" class="text-gray-400 hover:text-white transition flex items-center gap-1">Extraction</a>
         )}
 
         <a href="/logout" class="text-red-400/80 hover:text-red-400 transition flex items-center gap-1">Logout</a>
