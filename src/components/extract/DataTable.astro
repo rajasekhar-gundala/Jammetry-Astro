@@ -1,0 +1,230 @@
+---
+const pb = Astro.locals.pb;
+const user = Astro.locals.user; 
+let records: any[] = [];
+
+// We explicitly tell the frontend where PocketBase lives to prevent internal Docker routing errors.
+const pbUrl = 'https://pb.rajasekhar.digital';
+
+if (user) {
+    try {
+        records = await pb.collection('sales_data').getFullList({
+            filter: `user_id = "${user.id}"`, 
+            sort: '-created',
+            requestKey: null,
+        });
+    } catch (e: any) {
+        if (e.status !== 0) console.error("DataTable Fetch Error:", e.message);
+    }
+}
+
+const parseJSON = (data: any) => {
+    if (typeof data === 'string') return JSON.parse(data);
+    return data || {};
+};
+---
+
+<div class="bg-gray-900/50 border border-gray-800 rounded-3xl overflow-hidden shadow-2xl relative">
+    <div id="bulkActionsBar" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-2 rounded-full shadow-2xl flex items-center gap-4 animate-in fade-in zoom-in duration-300">
+        <span class="text-xs font-black uppercase tracking-widest"><span id="selectedCount">0</span> Selected</span>
+        <button id="bulkDeleteBtn" class="bg-white text-red-600 px-4 py-1 rounded-full text-[10px] font-black uppercase hover:bg-gray-100 transition">
+            Delete Selection
+        </button>
+    </div>
+
+    <div class="p-6 border-b border-gray-800 flex flex-col md:flex-row justify-between items-center bg-gray-900/80 gap-4">
+        <div class="flex items-center gap-4 w-full md:w-auto">
+            <h3 class="text-xl font-bold text-white tracking-tight">Recent Extractions</h3>
+            <div class="relative flex-1 md:w-64">
+                <span class="absolute inset-y-0 left-3 flex items-center text-gray-500">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round"/></svg>
+                </span>
+                <input type="text" id="tableSearch" placeholder="Search vendor, invoice, or status..." class="w-full bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-xl py-2 pl-10 pr-4 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" />
+            </div>
+        </div>
+        <button id="exportBtn" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-xl text-xs font-bold transition border border-gray-700 w-full md:w-auto">
+            Export CSV
+        </button>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse" id="mainInvoiceTable">
+            <thead>
+                <tr class="bg-gray-950/50">
+                    <th class="px-6 py-4 w-10"><input type="checkbox" id="selectAll" class="w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500/20 cursor-pointer" /></th>
+                    <th class="px-4 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Date</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Customer</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Invoice #</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Amount</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Status</th>
+                    <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800/50">
+                {records.map((rec) => {
+                    const vendor = parseJSON(rec.vendor_details);
+                    // Build the public URL to view the extracted PDF
+                    const pdfField = rec.pdf_file || rec.file;
+                    const fileUrl = pdfField ? `${pbUrl}/api/files/${rec.collectionId}/${rec.id}/${pdfField}` : null;
+
+                    return (
+                        <tr class="hover:bg-blue-500/[0.02] transition-colors group row-item" id={`row-${rec.id}`}>
+                            <td class="px-6 py-5"><input type="checkbox" name="invoiceSelect" value={rec.id} class="row-checkbox w-4 h-4 rounded border-gray-700 bg-gray-800 text-blue-500 focus:ring-blue-500/20 cursor-pointer" /></td>
+                            <td class="px-4 py-5 text-[11px] text-gray-500 font-mono">{new Date(rec.created).toLocaleDateString()}</td>
+                            <td class="px-6 py-5 font-bold text-gray-200 searchable-name">{vendor.name || 'Unknown'}</td>
+                            <td class="px-6 py-5 text-sm font-mono text-blue-400 searchable-invoice">{rec.invoice_number || '---'}</td>
+                            <td class="px-6 py-5 text-right font-black text-white"><span class="text-gray-500 font-normal mr-1">$</span>{Number(rec.invoice_total).toFixed(2)}</td>
+                            <td class="px-6 py-5 text-center">
+                                <span class={`px-3 py-1 rounded-full text-[9px] font-black uppercase border searchable-status ${rec.validation_status?.toLowerCase() === 'invalid' ? 'text-red-500 border-red-500/20' : 'text-green-500 border-green-500/20'}`}>
+                                    {rec.validation_status}
+                                </span>
+                            </td>
+                            <td class="px-6 py-5">
+                                <div class="flex items-center justify-end gap-2">
+                                    {fileUrl ? (
+                                        <a href={fileUrl} target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-400 p-2 transition-colors tooltip" title="View Source PDF">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        </a>
+                                    ) : (
+                                        <span class="text-gray-700 p-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg></span>
+                                    )}
+                                    <button class="single-delete-btn text-gray-600 hover:text-red-500 transition-colors p-2" data-id={rec.id} title="Delete Record">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+        <div id="noResults" class="hidden p-20 text-center"><p class="text-gray-500 text-sm font-medium">No records found matching your search.</p></div>
+    </div>
+    
+    <div id="custom-delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-950/80 backdrop-blur-sm transition-opacity">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-100 transition-transform">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 class="text-xl font-bold text-white">Confirm Deletion</h3>
+            </div>
+            <p class="text-gray-400 mb-6 text-sm" id="delete-modal-text">Are you sure you want to delete these records? This action cannot be undone.</p>
+            <div class="flex justify-end gap-3">
+                <button id="cancel-delete-btn" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-800 transition">Cancel</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition shadow-[0_0_15px_rgba(220,38,38,0.3)]">Delete Records</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script is:inline define:vars={{ records }}>
+    const searchInput = document.getElementById('tableSearch');
+    const tableRows = document.querySelectorAll('.row-item');
+    const noResults = document.getElementById('noResults');
+    const selectAll = document.getElementById('selectAll');
+    const bulkBar = document.getElementById('bulkActionsBar');
+    const selectedCountDisplay = document.getElementById('selectedCount');
+    const exportBtn = document.getElementById('exportBtn');
+
+    const deleteModal = document.getElementById('custom-delete-modal');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+    const deleteModalText = document.getElementById('delete-modal-text');
+    let pendingDeleteAction = null;
+
+    exportBtn?.addEventListener('click', () => {
+        if (!records || records.length === 0) return alert("No data to export.");
+        const headers = ["Date", "Customer Name", "Invoice Number", "Total Amount", "Status"];
+        const rows = records.map(rec => {
+            let vendor = {};
+            try { vendor = typeof rec.vendor_details === 'string' ? JSON.parse(rec.vendor_details) : rec.vendor_details; } catch(e) { vendor = {}; }
+            return [`"${new Date(rec.created).toLocaleDateString()}"`, `"${(vendor?.name || 'Unknown').replace(/"/g, '""')}"`, `"${rec.invoice_number}"`, rec.invoice_total, `"${rec.validation_status}"`];
+        });
+        const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Invoices_Export_${new Date().toISOString().split('T')[0]}.csv`;
+        link.click();
+    });
+
+    searchInput?.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        let visibleCount = 0;
+        tableRows.forEach(row => {
+            const name = row.querySelector('.searchable-name').textContent.toLowerCase();
+            const inv = row.querySelector('.searchable-invoice').textContent.toLowerCase();
+            const status = row.querySelector('.searchable-status').textContent.toLowerCase();
+            if (name.includes(term) || inv.includes(term) || status.includes(term)) {
+                row.style.display = "";
+                visibleCount++;
+            } else {
+                row.style.display = "none";
+                const cb = row.querySelector('.row-checkbox');
+                if (cb.checked) { cb.checked = false; row.classList.remove('bg-blue-500/5'); }
+            }
+        });
+        noResults.style.display = visibleCount === 0 ? "block" : "none";
+        document.getElementById('mainInvoiceTable').style.display = visibleCount === 0 ? "none" : "table";
+        updateBulkBar();
+    });
+
+    function updateBulkBar() {
+        const checked = document.querySelectorAll('.row-checkbox:checked');
+        selectedCountDisplay.textContent = checked.length;
+        bulkBar.classList.toggle('hidden', checked.length === 0);
+        bulkBar.classList.toggle('flex', checked.length > 0);
+    }
+
+    selectAll?.addEventListener('change', () => {
+        tableRows.forEach(row => {
+            if (row.style.display !== "none") {
+                const cb = row.querySelector('.row-checkbox');
+                cb.checked = selectAll.checked;
+                row.classList.toggle('bg-blue-500/5', selectAll.checked);
+            }
+        });
+        updateBulkBar();
+    });
+
+    document.querySelectorAll('.row-checkbox').forEach(cb => cb.addEventListener('change', () => {
+        cb.closest('tr').classList.toggle('bg-blue-500/5', cb.checked);
+        updateBulkBar();
+    }));
+
+    function triggerDeleteModal(message, executeDeleteFn) {
+        deleteModalText.innerText = message;
+        deleteModal.classList.remove('hidden');
+        deleteModal.classList.add('flex');
+        pendingDeleteAction = async () => {
+            confirmDeleteBtn.innerText = "Deleting...";
+            confirmDeleteBtn.disabled = true;
+            await executeDeleteFn();
+        };
+    }
+
+    cancelDeleteBtn?.addEventListener('click', () => {
+        deleteModal.classList.add('hidden');
+        deleteModal.classList.remove('flex');
+        pendingDeleteAction = null;
+    });
+
+    confirmDeleteBtn?.addEventListener('click', () => { if (pendingDeleteAction) pendingDeleteAction(); });
+
+    document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => {
+        const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+        triggerDeleteModal(`Are you sure you want to delete ${selectedIds.length} selected record(s)?`, async () => {
+            const res = await fetch('/delete-record', { method: 'POST', body: JSON.stringify({ ids: selectedIds }), headers: { 'Content-Type': 'application/json' } });
+            if (res.ok) window.location.reload();
+        });
+    });
+
+    document.querySelectorAll('.single-delete-btn').forEach(btn => btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        triggerDeleteModal('Are you sure you want to delete this invoice record?', async () => {
+            const res = await fetch('/delete-record', { method: 'POST', body: JSON.stringify({ id }), headers: { 'Content-Type': 'application/json' } });
+            if (res.ok) window.location.reload();
+        });
+    }));
+</script>
