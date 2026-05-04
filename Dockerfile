@@ -1,46 +1,40 @@
-# Stage 1: Base setup with pnpm
-FROM node:22-alpine AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
+# --- Stage 1: Build Stage ---
+FROM node:25-alpine AS builder
 ENV ASTRO_TELEMETRY_DISABLED=1
-# Enable corepack to use pnpm without installing it globally
-RUN corepack enable
-
-# Stage 2: Install ONLY production dependencies
-FROM base AS prod-deps
 WORKDIR /app
-ENV ASTRO_TELEMETRY_DISABLED=1
-COPY package.json pnpm-lock.yaml* ./
-# Use Docker build cache to speed up pnpm installs
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
-# Stage 3: Build the application
-FROM base AS builder
-WORKDIR /app
-ENV ASTRO_TELEMETRY_DISABLED=1
-COPY package.json pnpm-lock.yaml* ./
-# Install ALL dependencies (including devDependencies like Tailwind, Astro, etc.) needed for the build
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+# 1. Install pnpm globally
+RUN npm install -g pnpm
+
+# 2. Copy dependency files first to leverage Docker caching
+# Make sure you have a pnpm-lock.yaml file in your repo!
+COPY package.json pnpm-lock.yaml ./
+
+# 3. Install dependencies strictly using the lockfile
+RUN pnpm install --frozen-lockfile
+
+# 4. Copy the rest of the source code
 COPY . .
+
+# 5. Build the Astro project
 RUN pnpm run build
 
-# Stage 4: Production runner
-FROM base AS runner
-WORKDIR /app
+# --- Stage 2: Runtime Stage ---
+FROM node:20-slim AS runtime
 ENV ASTRO_TELEMETRY_DISABLED=1
+WORKDIR /app
 
-# Set production environment variables
-ENV NODE_ENV=production
+# 6. Copy only the necessary compiled files from the builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+# 7. Set Environment Variables
 ENV HOST=0.0.0.0
 ENV PORT=4321
+ENV NODE_ENV=production
 
-# Copy only the necessary files from previous stages
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package.json ./
-
-# Expose the port Astro runs on
 EXPOSE 4321
 
-# Start the Node server (Astro's default output path for the Node adapter)
+# 8. Start the Astro SSR server
 CMD ["node", "./dist/server/entry.mjs"]
