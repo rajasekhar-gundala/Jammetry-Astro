@@ -1,5 +1,5 @@
 # --- Stage 1: Build Stage ---
-FROM node:25-alpine AS builder
+FROM node:25-slim AS builder
 ENV ASTRO_TELEMETRY_DISABLED=1
 WORKDIR /app
 
