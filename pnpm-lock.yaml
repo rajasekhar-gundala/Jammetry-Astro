@@ -26,6 +26,9 @@ importers:
       astro:
         specifier: ^6.2.1
         version: 6.2.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.2)
+      groq:
+        specifier: ^5.23.0
+        version: 5.23.0
       nodemailer:
         specifier: ^8.0.7
         version: 8.0.7
@@ -1121,6 +1124,10 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  groq@5.23.0:
+    resolution: {integrity: sha512-9RNUKenNcWwLW7ndAzCerNfuYSYgohovkPuPJvDWj2fNzoNo9LoymdS7YKOIAmFUC/w4tE1EZkN0vrJyI9cv9w==}
+    engines: {node: '>=20.19 <22 || >=22.12'}
 
   h3@1.15.11:
     resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
@@ -3015,6 +3022,8 @@ snapshots:
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
+
+  groq@5.23.0: {}
 
   h3@1.15.11:
     dependencies:
