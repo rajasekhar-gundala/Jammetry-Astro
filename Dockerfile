@@ -1,5 +1,5 @@
 # --- Stage 1: Build Stage ---
-FROM node:25-slim AS builder
+FROM node:25-alpine AS builder
 ENV ASTRO_TELEMETRY_DISABLED=1
 WORKDIR /app
 
@@ -20,7 +20,7 @@ COPY . .
 RUN pnpm run build
 
 # --- Stage 2: Runtime Stage ---
-FROM node:20-slim AS runtime
+FROM node:25-alpine AS runtime
 ENV ASTRO_TELEMETRY_DISABLED=1
 WORKDIR /app
 
