@@ -86,7 +86,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
                     name: "",
                     emailVisibility: true,
                     verified: false,
-                    app_context: "jammetry",
+                    // 👇 FIXED: Initialize with modular framework instead of legacy jammetry
+                    plan_type: "free",
+                    app_context: "base",
+                    active_modules: [], 
                     setup_token: setupToken // Saving our custom token
                 });
                 userId = newUser.id;
