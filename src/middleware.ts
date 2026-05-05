@@ -28,8 +28,20 @@ export const onRequest = defineMiddleware(async ({ locals, request, redirect, ur
 
     // 2. Prevent logged-in users from seeing login/signup pages
     if ((isLoginPage || isSignupPage) && locals.user) {
-        return redirect("/dashboard/tenants");
+        const modules = locals.user.active_modules || [];
+        const legacy = locals.user.app_context || '';
+        
+        // Route them to their specific app!
+        if (modules.includes('extract') || legacy === 'pdf-extract') return redirect('/dashboard/extract');
+        if (modules.includes('chat')) return redirect('/dashboard/chat');
+        
+        return redirect('/dashboard/tenants');
     }
+
+    // 2. Prevent logged-in users from seeing login/signup pages
+    //if ((isLoginPage || isSignupPage) && locals.user) {
+    //    return redirect("/dashboard/tenants");
+    //}
 
     // --- 3. UNIFIED SUPER-APP ROUTER GUARD ---
     if (isDashboardRoute && locals.user) {

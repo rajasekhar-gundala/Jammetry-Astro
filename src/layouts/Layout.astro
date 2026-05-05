@@ -75,54 +75,36 @@ const getLinkStyle = (path: string, exact = false, isFallback = false) => {
 
                 {/* 2. CUSTOMER MENU */}
                 {isDashboardArea && (
-                    <>
-                        <a href="/dashboard/tenants" class={getLinkStyle('/dashboard/tenants', true)}>Tenants</a>
-                        <a href="/dashboard/analytics" class={getLinkStyle('/dashboard/analytics')}>Analytics</a>
-                        <a href="/dashboard/leads" class={getLinkStyle('/dashboard/leads')}>
-                            Leads <span class="ml-1 bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold">New</span>
-                        </a>
+    <>
+        {/* Knowledgebase/DaaS Apps */}
+        {[
+            { name: 'Tenants', path: '/dashboard/tenants', moduleId: 'knowledgebase' },
+            { name: 'Analytics', path: '/dashboard/analytics', moduleId: 'knowledgebase' },
+            { name: 'Leads', path: '/dashboard/leads', moduleId: 'knowledgebase' },
+            { name: 'Docs & AI', path: id ? `/dashboard/tenants/${id}/docs` : '/dashboard/tenants', moduleId: 'daas' },
+            { name: 'Doc Chat', path: '/dashboard/chat', moduleId: 'chat' },
+            { name: 'PDF Extract', path: '/dashboard/extract', moduleId: 'extract' },
+        ].map(app => {
+            // Check if they have access to this specific module OR if they have the all-in-one pass
+            const hasAccess = isSuperAdmin || userModules.includes(app.moduleId) || userModules.includes('all-in-one');
+            
+            if (!hasAccess) {
+                return (
+                    <span class="flex items-center gap-1.5 text-sm font-medium text-gray-400 opacity-60 cursor-not-allowed px-3 py-2 rounded-lg bg-gray-50/50 select-none">
+                        {app.name}
+                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    </span>
+                );
+            }
 
-                        {/* Premium Modular Apps mapped dynamically */}
-                        {[
-                            { 
-                                name: 'Docs & AI', 
-                                path: id ? `/dashboard/tenants/${id}/docs` : '/dashboard/tenants', 
-                                moduleId: 'daas',
-                                newTab: false,
-                                isFallback: !id // Identifies if they are missing a tenant context
-                            },
-                            { name: 'Doc Chat', path: '/dashboard/chat', moduleId: 'chat', newTab: true },
-                            { name: 'PDF Extract', path: '/dashboard/extract', moduleId: 'extract', newTab: true },
-                        ].map(app => {
-                            const hasAccess = isSuperAdmin || userModules.includes(app.moduleId);
-                            
-                            // 👇 If they don't have access, render a dull, unclickable span instead of a link
-                            if (!hasAccess) {
-                                return (
-                                    <span class="flex items-center gap-1.5 text-sm font-medium text-gray-400 opacity-60 cursor-not-allowed px-3 py-2 rounded-lg bg-gray-50/50 select-none">
-                                        {app.name}
-                                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                        </svg>
-                                    </span>
-                                );
-                            }
-
-                            // 👇 If they have access, render the normal link
-                            return (
-                                <a 
-                                    href={app.path} 
-                                    target={app.newTab ? "_blank" : "_self"}
-                                    rel={app.newTab ? "noopener noreferrer" : ""}
-                                    title={app.isFallback ? "Please select a specific tenant to configure Docs & AI" : ""}
-                                    class={getLinkStyle(app.path, true, app.isFallback)}
-                                >
-                                    {app.name}
-                                </a>
-                            )
-                        })}
-                    </>
-                )}
+            return (
+                <a href={app.path} class={getLinkStyle(app.path, true)}>
+                    {app.name}
+                </a>
+            )
+        })}
+    </>
+)}
 
                 {/* 3. GOD MODE MENU */}
                 {isAdminArea && (
@@ -148,6 +130,14 @@ const getLinkStyle = (path: string, exact = false, isFallback = false) => {
                               <a href="/admin/inquiries" class="text-xs font-bold text-gray-500 hover:text-gray-900">Admin Area</a>
                           )
                       )}
+
+                      {/* 👉 THE GLOBAL UPGRADE BUTTON */}
+            {!userModules.includes('all-in-one') && (
+                <a href="/pricing" class="hidden sm:flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-md hover:bg-amber-200 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Upgrade Plan
+                </a>
+            )}
 
                       <a href="/logout" class="text-xs font-bold text-red-600 bg-red-50 px-3 py-1 rounded-md hover:bg-red-100 transition-colors">Logout</a>
                   </>
