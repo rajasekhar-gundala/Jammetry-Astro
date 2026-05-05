@@ -8,7 +8,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
     apiVersion: '2023-10-16', 
 });
 
-// 👉 Changed from POST to GET to support the <a> tags on the pricing page
 export const GET: APIRoute = async ({ locals, redirect, url }) => {
     // 1. Security Check: Ensure the user is actually logged in
     if (!locals.user) {
@@ -16,7 +15,7 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
     }
 
     try {
-        // 2. Grab the module they want to buy from the URL (e.g., ?module=extract)
+        // 2. Grab the module they want to buy from the URL (e.g., ?module=doc_pro)
         const targetModule = url.searchParams.get('module');
 
         if (!targetModule) {
@@ -24,11 +23,12 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
         }
 
         // 3. Map the requested module to your Stripe Price IDs
-        // ⚠️ Make sure to add these exact variable names to your Docker/Render .env file!
+        // 👇 FIXED: This now exactly matches your pricing.astro links and Docker environment variables!
         const priceIds: Record<string, string | undefined> = {
-            'chat': process.env.STRIPE_PRICE_CHAT,
+            'doc_pro': process.env.STRIPE_PRICE_DOC_PRO,
             'daas': process.env.STRIPE_PRICE_DAAS,
-            'extract': process.env.STRIPE_PRICE_EXTRACT,
+            'knowledgebase': process.env.STRIPE_PRICE_KNOWLEDGEBASE,
+            'hosting': process.env.STRIPE_PRICE_HOSTING,
             'all-in-one': process.env.STRIPE_PRICE_ALL_IN_ONE,
         };
 
@@ -54,11 +54,9 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
             mode: 'subscription',
             customer_email: locals.user.email, 
             
-            // 👉 THE MAGIC LINK: We now pass the USER ID instead of the Tenant ID, 
-            // because modules belong to the User's account globally!
             client_reference_id: locals.user.id, 
             
-            // 👉 Pass the specific module in metadata so the webhook knows exactly what to unlock
+            // Pass the specific module in metadata so the webhook knows exactly what to unlock
             metadata: {
                 module: targetModule,
                 userId: locals.user.id
@@ -70,8 +68,8 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
                 }
             },
             
-            // Smart Redirect: Send them directly to the app they just bought!
-            success_url: `${baseUrl}/dashboard/${targetModule === 'all-in-one' ? 'tenants' : targetModule}?upgrade=success`,
+            // Smart Redirect: If they bought doc_pro, send them to chat. Otherwise, send to their app.
+            success_url: `${baseUrl}/dashboard/${targetModule === 'doc_pro' ? 'chat' : (targetModule === 'all-in-one' ? 'tenants' : targetModule)}?upgrade=success`,
             cancel_url: `${baseUrl}/pricing?upgrade=cancelled`,
         });
 
