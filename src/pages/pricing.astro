@@ -1,0 +1,190 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const upgradeTarget = Astro.url.searchParams.get('upgrade');
+const reason = Astro.url.searchParams.get('reason');
+
+const user = Astro.locals.user;
+const userModules = user?.active_modules || [];
+
+// Helper to determine what 49/mo app they are trying to buy
+const aLaCarteTarget = ['daas', 'knowledgebase', 'hosting'].includes(upgradeTarget || '') 
+    ? upgradeTarget 
+    : 'daas'; // Default to DaaS if no target
+
+const aLaCarteNames: Record<string, string> = {
+    daas: 'DaaS (Docs & AI)',
+    knowledgebase: 'Knowledgebase',
+    hosting: 'Tiiny Hosting'
+};
+
+const plans = [
+    {
+        id: 'doc_pro', 
+        targetMatches: ['chat', 'extract'], 
+        name: 'Doc & Data Pro',
+        price: '29',
+        description: 'For heavy researchers and professionals.',
+        features: [
+            'Unlimited document uploads*',
+            'Unlimited AI messages*',
+            'Priority AI processing',
+            'Excel & CSV Data Analysis'
+        ]
+    },
+    {
+        id: aLaCarteTarget,
+        targetMatches: ['daas', 'knowledgebase', 'hosting'],
+        name: `${aLaCarteNames[aLaCarteTarget]}`,
+        price: '49',
+        badge: 'À La Carte',
+        description: 'Perfect for teams that only need one specific AI tool.',
+        features: [
+            'Standard vector storage',
+            '1000 AI Chats / month',
+            'Self-hosted LLM compatibility',
+            'Community Support'
+        ]
+    }
+];
+---
+
+<Layout title="Upgrade Your Workspace">
+    <main class="min-h-screen bg-gray-50 py-16 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            
+            <div class="text-center max-w-3xl mx-auto mb-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {reason === 'locked' && upgradeTarget && (
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 text-amber-800 text-sm font-bold mb-6 shadow-sm border border-amber-200">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        You need an active subscription to access this module.
+                    </div>
+                )}
+                
+                <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl">
+                    Build your perfect <span class="text-blue-600">AI workspace</span>
+                </h1>
+                <p class="mt-4 text-xl text-gray-500">
+                    Pay only for the modules you need, or unlock the entire suite.
+                </p>
+            </div>
+
+            {/* Grid for Pro & A La Carte */}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                {plans.map((plan) => {
+                    const hasModule = plan.targetMatches.every(mod => userModules.includes(mod)) || user?.active_modules?.includes('all-in-one');
+                    const isTargeted = plan.targetMatches.includes(upgradeTarget || '');
+
+                    return (
+                        <div class={`relative flex flex-col bg-white rounded-3xl p-8 shadow-sm transition-all duration-300 ${
+                            isTargeted 
+                                ? 'ring-2 ring-blue-600 scale-105 shadow-xl shadow-blue-100 z-10' 
+                                : 'border border-gray-200 hover:shadow-lg'
+                        }`}>
+                            
+                            {plan.badge && !isTargeted && (
+                                <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs font-bold uppercase tracking-widest px-4 py-1 rounded-full">
+                                    {plan.badge}
+                                </div>
+                            )}
+
+                            {isTargeted && (
+                                <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md">
+                                    Required Module
+                                </div>
+                            )}
+
+                            <div class="mb-6 mt-2">
+                                <h3 class="text-2xl font-bold text-gray-900">{plan.name}</h3>
+                                <p class="text-sm text-gray-500 mt-2 min-h-[40px]">{plan.description}</p>
+                            </div>
+
+                            <div class="mb-6 flex items-baseline gap-2">
+                                <span class="text-5xl font-extrabold text-gray-900">${plan.price}</span>
+                                <span class="text-gray-500 font-medium">/month</span>
+                            </div>
+
+                            <ul class="space-y-4 mb-8 flex-1">
+                                {plan.features.map(feature => (
+                                    <li class="flex items-start gap-3">
+                                        <svg class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        <span class="text-sm text-gray-600 font-medium">{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                            {hasModule ? (
+                                <button disabled class="w-full py-3 px-4 rounded-xl font-bold text-gray-500 bg-gray-100 border border-gray-200 cursor-not-allowed">
+                                    Currently Active
+                                </button>
+                            ) : (
+                                <a 
+                                    href={`/api/create-checkout?module=${plan.id}`} 
+                                    class={`w-full py-3 px-4 rounded-xl font-bold text-center transition-all ${
+                                        isTargeted 
+                                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200' 
+                                            : 'bg-white text-blue-600 border-2 border-blue-100 hover:border-blue-600 hover:bg-blue-50'
+                                    }`}
+                                >
+                                    Add to Workspace
+                                </a>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            
+            <div class="mt-12 bg-gray-950 rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden group">
+                <div class="absolute -right-20 -top-20 w-64 h-64 bg-blue-600/20 blur-3xl rounded-full group-hover:bg-blue-600/30 transition-all duration-700"></div>
+                
+                <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div class="max-w-2xl">
+                        <span class="text-blue-400 font-black tracking-widest uppercase text-xs mb-2 block">The Complete Suite</span>
+                        <h3 class="text-3xl font-extrabold text-white mb-4">All-in-One Platform</h3>
+                        <p class="text-gray-400 mb-6 text-lg">Unlock access to all 5 products: Doc Chat, Sales Extraction, Knowledgebase, DaaS, and Instant Hosting.</p>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {['Shared unlimited vector storage', 'Advanced PocketBase role controls', 'Priority email support', 'Custom domain routing'].map(feat => (
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    <span class="text-sm text-gray-300">{feat}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center md:items-end shrink-0 w-full md:w-auto bg-gray-900/50 p-6 rounded-2xl border border-gray-800">
+                        <div class="flex items-baseline gap-2 mb-4">
+                            <span class="text-5xl font-black text-white">$149</span>
+                            <span class="text-gray-500">/mo</span>
+                        </div>
+                        {userModules.includes('all-in-one') ? (
+                            <button disabled class="w-full md:w-auto py-3 px-8 rounded-xl font-bold text-gray-500 bg-gray-800 cursor-not-allowed border border-gray-700">
+                                Active Subscription
+                            </button>
+                        ) : (
+                            <a href="/api/create-checkout?module=all-in-one" class="w-full md:w-auto bg-blue-600 text-white font-bold px-8 py-3 rounded-xl hover:bg-blue-500 transition-colors shadow-[0_0_20px_rgba(37,99,235,0.3)] text-center">
+                                Get the Bundle
+                            </a>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="mt-12 text-center border-t border-gray-200 pt-12 pb-8">
+                <h4 class="text-lg font-bold text-gray-900">Enterprise & Agency</h4>
+                <p class="text-gray-500 mt-2 mb-6 max-w-2xl mx-auto">High-volume data processing, custom local LLM deployments, dedicated Valkey caching infrastructure, and strict SLA guarantees.</p>
+                <a href="/contact" class="inline-flex items-center gap-2 font-bold text-gray-900 bg-white border border-gray-300 px-6 py-2.5 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+                    Contact Sales
+                </a>
+            </div>
+            
+            <p class="text-center text-xs text-gray-400 mt-8">* Subject to our Fair Use Policy to ensure system stability for all users.</p>
+
+        </div>
+    </main>
+</Layout>

@@ -31,35 +31,55 @@ export const POST: APIRoute = async ({ request }) => {
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object as Stripe.Checkout.Session;
         
-        // This is the tenantId you passed in create-checkout.ts!
-        const tenantId = session.client_reference_id; 
+        // 👉 NEW: This is now the USER ID, not the Tenant ID!
+        const userId = session.client_reference_id; 
+        
+        // 👉 NEW: Grab the specific module they purchased from the metadata we passed in checkout
+        const purchasedModule = session.metadata?.module; 
+
         const customerId = session.customer as string;
         const subscriptionId = session.subscription as string;
 
-        if (tenantId) {
+        if (userId && purchasedModule) {
             try {
-                // 4. Initialize PocketBase as an Admin (since Stripe is making this request, not the user)
-                const pb = new PocketBase(process.env.PUBLIC_POCKETBASE_URL);
+                // 4. Initialize PocketBase as an Admin
+                // Use the internal Docker URL if running in Docker, otherwise fallback to public URL
+                const pbUrl = process.env.PUBLIC_POCKETBASE_URL || "http://pocketbase:8080";
+                const pb = new PocketBase(pbUrl);
                 
-                // Add these to your .env file
-                await pb.admins.authWithPassword(
+                // Authenticate as superuser to securely modify the user record
+                await pb.collection('_superusers').authWithPassword(
                     process.env.PB_ADMIN_EMAIL!, 
                     process.env.PB_ADMIN_PASSWORD!
                 );
 
-                // 5. Upgrade the specific tenant in PocketBase
-                await pb.collection('tenants').update(tenantId, {
-                    plan_type: 'pro',
-                    subscription_status: 'active',
+                // 5. Fetch the user to get their current active_modules array
+                const userRecord = await pb.collection('users').getOne(userId);
+                let currentModules: string[] = userRecord.active_modules || [];
+
+                // 6. Append the new module safely
+                if (purchasedModule === 'all-in-one') {
+                    // Unlock everything
+                    currentModules = ['chat', 'extract', 'daas', 'knowledgebase', 'hosting'];
+                } else if (!currentModules.includes(purchasedModule)) {
+                    // Append the single module if they don't already have it
+                    currentModules.push(purchasedModule);
+                }
+
+                // 7. Update the USER record in PocketBase
+                await pb.collection('users').update(userId, {
+                    active_modules: currentModules,
                     stripe_customer_id: customerId,
                     stripe_subscription_id: subscriptionId,
                 });
 
-                console.log(`✅ Successfully upgraded tenant ${tenantId} to Pro.`);
-            } catch (pbError) {
-                console.error(`❌ PocketBase Update Error:`, pbError);
+                console.log(`✅ Successfully added module '${purchasedModule}' to User ${userId}.`);
+            } catch (pbError: any) {
+                console.error(`❌ PocketBase Update Error:`, pbError.message);
                 return new Response("Database update failed", { status: 500 });
             }
+        } else {
+            console.warn("⚠️ Webhook missing userId or module metadata.");
         }
     }
 
