@@ -54,12 +54,13 @@ export const onRequest = defineMiddleware(async ({ locals, request, redirect, ur
     }
 
     // --- UNIFIED SUPER-APP ROUTER GUARD ---
+    // --- UNIFIED SUPER-APP ROUTER GUARD ---
     if (isDashboardRoute && locals.user) {
+        // ONLY put strictly premium routes here. 
+        // We remove chat, extract, and tenants so free users can access them!
         const accessMap = [
-            { path: '/dashboard/chat', requiredModule: 'chat' },
-            { path: '/dashboard/extract', requiredModule: 'extract' },
-            { path: '/dashboard/daas', requiredModule: 'daas' },
-            { path: '/dashboard/knowledgebase', requiredModule: 'knowledgebase' },
+            { path: '/dashboard/analytics', requiredModule: 'knowledgebase' },
+            { path: '/dashboard/leads', requiredModule: 'knowledgebase' },
             { path: '/dashboard/hosting', requiredModule: 'hosting' },
         ];
 
@@ -69,17 +70,13 @@ export const onRequest = defineMiddleware(async ({ locals, request, redirect, ur
         // Backward compatibility mappings
         if (legacyContext === 'all-in-one') {
             userModules = ['chat', 'extract', 'daas', 'knowledgebase', 'hosting'];
-        } else if (legacyContext === 'jammetry' || legacyContext === 'docs-chat') {
-            userModules = [...userModules, 'chat']; 
-        } else if (legacyContext === 'pdf-extract') {
-            userModules = [...userModules, 'extract'];
         } else if (legacyContext === 'daas') {
             userModules = [...userModules, 'daas', 'knowledgebase'];
         }
 
         for (const route of accessMap) {
             if (url.pathname.startsWith(route.path)) {
-                if (!userModules.includes(route.requiredModule)) {
+                if (!userModules.includes(route.requiredModule) && !userModules.includes('all-in-one')) {
                     console.log(`🔒 Blocked access to ${route.path}. User lacks '${route.requiredModule}'.`);
                     return redirect(`/pricing?upgrade=${route.requiredModule}&reason=locked`);
                 }

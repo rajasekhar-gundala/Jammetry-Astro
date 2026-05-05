@@ -77,20 +77,21 @@ const getLinkStyle = (path: string, exact = false, isFallback = false) => {
                 {isDashboardArea && (
                     <>
                         {/* Knowledgebase/DaaS Apps */}
+                        {/* Apps List */}
                         {[
-                            { name: 'Tenants', path: '/dashboard/tenants', moduleId: 'knowledgebase' },
-                            { name: 'Analytics', path: '/dashboard/analytics', moduleId: 'knowledgebase' },
-                            { name: 'Leads', path: '/dashboard/leads', moduleId: 'knowledgebase' },
-                            { name: 'Docs & AI', path: id ? `/dashboard/tenants/${id}/docs` : '/dashboard/tenants', moduleId: 'daas' },
-                            { name: 'Doc Chat', path: '/dashboard/chat', moduleId: 'chat', newTab: true },
-                            { name: 'PDF Extract', path: '/dashboard/extract', moduleId: 'extract', newTab: true },
+                            { name: 'Tenants', path: '/dashboard/tenants', isPremium: false },
+                            { name: 'Analytics', path: '/dashboard/analytics', isPremium: true, moduleId: 'knowledgebase' },
+                            { name: 'Leads', path: '/dashboard/leads', isPremium: true, moduleId: 'knowledgebase' },
+                            { name: 'Docs & AI', path: id ? `/dashboard/tenants/${id}/docs` : '/dashboard/tenants', isPremium: false },
+                            { name: 'Doc Chat', path: '/dashboard/chat', isPremium: false, newTab: true },
+                            { name: 'PDF Extract', path: '/dashboard/extract', isPremium: false, newTab: true },
                         ].map(app => {
-                            // Check if they have access to this specific module OR if they have the all-in-one pass
-                            const hasAccess = isSuperAdmin || userModules.includes(app.moduleId) || userModules.includes('all-in-one');
+                            // Check if it's a premium app and if the user has access
+                            const hasAccess = !app.isPremium || isSuperAdmin || userModules.includes(app.moduleId) || userModules.includes('all-in-one');
                             
                             if (!hasAccess) {
                                 return (
-                                    <span class="flex items-center gap-1.5 text-sm font-medium text-gray-400 opacity-60 cursor-not-allowed px-3 py-2 rounded-lg bg-gray-50/50 select-none">
+                                    <span class="flex items-center gap-1.5 text-sm font-medium text-gray-400 opacity-60 cursor-not-allowed px-3 py-2 rounded-lg bg-gray-50/50 select-none" title="Upgrade to access">
                                         {app.name}
                                         <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                                     </span>

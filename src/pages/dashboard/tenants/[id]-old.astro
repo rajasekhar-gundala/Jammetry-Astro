@@ -3,7 +3,6 @@ import Layout from '../../../layouts/Layout.astro';
 
 const { id } = Astro.params;
 const pb = Astro.locals.pb;
-const user = Astro.locals.user; // 👉 Added to check user permissions
 
 let tenant;
 const isSuccess = Astro.url.searchParams.get('success') === 'true';
@@ -19,7 +18,7 @@ try {
 // Check training status
 const trainingStatus = tenant.training_status || 'idle';
 const isProcessing = trainingStatus === 'processing';
-const isCompleted = trainingStatus === 'completed';
+const isCompleted = trainingStatus === 'completed'; // 👉 Added new check
 
 // Extract settings safely
 const settings = tenant.settings || {};
@@ -27,11 +26,6 @@ const botName = settings.bot_name || 'AI Assistant';
 const themeColor = settings.theme_color || '#2563eb';
 const welcomeMessage = settings.welcome_message || 'Hello! How can I help you today?';
 const systemPrompt = settings.system_prompt || 'You are a helpful and polite customer support assistant.';
-
-// 👉 NEW: Premium Knowledgebase Check
-const userModules = user?.active_modules || [];
-const legacyContext = user?.app_context || '';
-const hasKnowledgebase = userModules.includes('knowledgebase') || userModules.includes('all-in-one') || legacyContext === 'daas';
 ---
 
 <Layout title={`Configure ${tenant.name}`}>
@@ -59,6 +53,7 @@ const hasKnowledgebase = userModules.includes('knowledgebase') || userModules.in
             <strong>Error:</strong> Failed to connect to the training server. Please try again.
         </div>
     )}
+    {/* 👉 NEW COMPLETED BANNER */}
     {isCompleted && (
         <div class="notification-banner bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -132,85 +127,64 @@ const hasKnowledgebase = userModules.includes('knowledgebase') || userModules.in
             </div>
         </div>
 
-        {/* 👉 NEW: CONDITIONAL KNOWLEDGE BASE SECTION */}
-        {hasKnowledgebase ? (
-            <div class="lg:col-span-3 bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
-                <h2 class="text-xl font-bold mb-6 text-gray-900 flex items-center gap-2">
-                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-                    Knowledge Base Training
-                </h2>
-                
-                {isProcessing ? (
-                    <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-10 text-center flex flex-col items-center justify-center">
-                        <svg class="animate-spin text-indigo-600 w-12 h-12 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        <h3 class="text-xl font-bold text-indigo-900 mb-2">Training in Progress</h3>
-                        <p class="text-indigo-700 text-sm max-w-md mx-auto">Your AI is currently processing the data and updating its vector database. This usually takes a few minutes. The page will auto-refresh when complete.</p>
-                    </div>
-                ) : (
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                                <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
-                                Scrape Website
-                            </h3>
-                            <p class="text-xs text-gray-500 mb-4">Provide a URL for the crawler to read.</p>
-                            <form method="POST" action="/api/train-bot" class="space-y-3">
-                                <input type="hidden" name="id" value={tenant.id} />
-                                <input type="hidden" name="training_type" value="url" />
-                                <input type="url" name="source" required placeholder="https://example.com" class="border border-gray-300 p-2.5 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
-                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Scrape & Train</button>
-                            </form>
-                        </div>
-
-                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                                <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
-                                Upload Document
-                            </h3>
-                            <p class="text-xs text-gray-500 mb-4">Upload a PDF, DOCX, or TXT file.</p>
-                            <form method="POST" action="/api/train-bot" enctype="multipart/form-data" class="space-y-3">
-                                <input type="hidden" name="id" value={tenant.id} />
-                                <input type="hidden" name="training_type" value="file" />
-                                <input type="file" name="file" accept=".pdf,.docx,.txt" required class="border border-gray-300 p-2 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white" />
-                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Upload & Train</button>
-                            </form>
-                        </div>
-
-                        <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
-                            <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                                <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
-                                Sync API Endpoint
-                            </h3>
-                            <p class="text-xs text-gray-500 mb-4">Fetch JSON data from an external API.</p>
-                            <form method="POST" action="/api/train-bot" class="space-y-3">
-                                <input type="hidden" name="id" value={tenant.id} />
-                                <input type="hidden" name="training_type" value="api" />
-                                <input type="url" name="source" required placeholder="https://api.example.com/docs" class="border border-gray-300 p-2.5 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
-                                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Sync & Train</button>
-                            </form>
-                        </div>
-                    </div>
-                )}
-            </div>
-        ) : (
-            <div class="lg:col-span-3 bg-gradient-to-br from-indigo-50 to-blue-50 border border-blue-100 rounded-xl p-10 text-center relative overflow-hidden shadow-sm">
-                <div class="absolute -right-10 -top-10 text-blue-100 opacity-50 pointer-events-none">
-                    <svg class="w-48 h-48" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg>
+        <div class="lg:col-span-3 bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
+            <h2 class="text-xl font-bold mb-6 text-gray-900 flex items-center gap-2">
+                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                Knowledge Base Training
+            </h2>
+            
+            {isProcessing ? (
+                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-10 text-center flex flex-col items-center justify-center">
+                    <svg class="animate-spin text-indigo-600 w-12 h-12 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <h3 class="text-xl font-bold text-indigo-900 mb-2">Training in Progress</h3>
+                    <p class="text-indigo-700 text-sm max-w-md mx-auto">Your AI is currently processing the data and updating its vector database. This usually takes a few minutes. The page will auto-refresh when complete.</p>
                 </div>
-                
-                <div class="relative z-10 max-w-xl mx-auto">
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-bold uppercase tracking-wider mb-4">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                        Premium Feature
-                    </span>
-                    <h3 class="text-2xl font-extrabold text-gray-900 mb-2">Train a Custom Knowledge Base</h3>
-                    <p class="text-gray-600 mb-6">Upgrade to unlock web scraping, document processing, and API syncing for your AI Assistant.</p>
-                    <a href="/pricing?upgrade=knowledgebase" class="inline-block bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md">
-                        Upgrade to Knowledgebase Pro
-                    </a>
+            ) : (
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                        <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                            Scrape Website
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-4">Provide a URL for the crawler to read.</p>
+                        <form method="POST" action="/api/train-bot" class="space-y-3">
+                            <input type="hidden" name="id" value={tenant.id} />
+                            <input type="hidden" name="training_type" value="url" />
+                            <input type="url" name="source" required placeholder="https://example.com" class="border border-gray-300 p-2.5 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Scrape & Train</button>
+                        </form>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                        <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                            Upload Document
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-4">Upload a PDF, DOCX, or TXT file.</p>
+                        <form method="POST" action="/api/train-bot" enctype="multipart/form-data" class="space-y-3">
+                            <input type="hidden" name="id" value={tenant.id} />
+                            <input type="hidden" name="training_type" value="file" />
+                            <input type="file" name="file" accept=".pdf,.docx,.txt" required class="border border-gray-300 p-2 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white" />
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Upload & Train</button>
+                        </form>
+                    </div>
+
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
+                        <h3 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+                            Sync API Endpoint
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-4">Fetch JSON data from an external API.</p>
+                        <form method="POST" action="/api/train-bot" class="space-y-3">
+                            <input type="hidden" name="id" value={tenant.id} />
+                            <input type="hidden" name="training_type" value="api" />
+                            <input type="url" name="source" required placeholder="https://api.example.com/docs" class="border border-gray-300 p-2.5 w-full rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-bold w-full shadow-sm transition-all">Sync & Train</button>
+                        </form>
+                    </div>
                 </div>
-            </div>
-        )}
+            )}
+        </div>
 
     </div>
   </main>
