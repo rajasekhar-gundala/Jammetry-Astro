@@ -152,9 +152,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
         }
 
     } catch (error: any) {
+        // 👇 ADD THIS LINE: It will print exactly which field PocketBase hated!
+        console.error("🔍 DEEP PB ERROR:", JSON.stringify(error?.response?.data, null, 2));
         console.error("🔥 PB Error:", error.message);
         
-        // Ensure we always return a clean string to the frontend
         const errorMessage = error?.response?.message || error.message || "Failed to process request.";
         return new Response(JSON.stringify({ error: errorMessage }), { status: 500 });
     }
