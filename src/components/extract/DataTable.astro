@@ -6,7 +6,20 @@ let records: any[] = [];
 // We explicitly tell the frontend where PocketBase lives to prevent internal Docker routing errors.
 const pbUrl = 'https://pb.rajasekhar.digital';
 
-if (user) {
+// 👇 NEW: The Ultimate Check
+const userModules = user?.active_modules || [];
+const planType = user?.plan_type || 'free';
+const legacyContext = user?.app_context || '';
+
+const hasExtractAccess = userModules.includes('extract') || 
+                         userModules.includes('doc_pro') || 
+                         userModules.includes('all-in-one') || 
+                         planType === 'all-in-one' ||
+                         legacyContext === 'pdf-extract' || 
+                         legacyContext === 'all-in-one';
+
+// 👇 Wrap the fetch in the hasExtractAccess check
+if (user && hasExtractAccess) {
     try {
         records = await pb.collection('sales_data').getFullList({
             filter: `user_id = "${user.id}"`, 
