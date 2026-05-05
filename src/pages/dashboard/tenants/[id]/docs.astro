@@ -11,14 +11,29 @@ if (!user) {
     return Astro.redirect('/login');
 }
 
-// VIP Check: Super Admins, Pro plans, and All-in-One users get true
-const ADMIN_EMAILS = ['rajaseg@outlook.com', 'rajaseg@gmail.com'];
+// VIP Check: Super Admins get instant true
+const ADMIN_EMAILS = ['rajaseg@outlook.com', 'rajaseg@gmail.com', 'itsraj@outlook.com'];
 const isSuperAdmin = ADMIN_EMAILS.includes(user.email);
-const isProUser = isSuperAdmin || user?.plan === 'pro' || user?.app_context === 'all-in-one';
+
+// Extract the new modular permissions from PocketBase
+const userModules = user?.active_modules || [];
+const planType = user?.plan_type || 'free';
+const legacyContext = user?.app_context || '';
+
+// 👇 FIXED: The Ultimate 'isPro' Check mapping to the new schema
+const isProUser = isSuperAdmin || 
+                  userModules.includes('all-in-one') || 
+                  userModules.includes('daas') || 
+                  planType === 'all-in-one' || 
+                  planType === 'pro' ||
+                  user?.plan === 'pro' || // Keeping just in case of old data
+                  legacyContext === 'all-in-one' ||
+                  legacyContext === 'daas';
 ---
 
 <Layout title="Docs & AI Manager">
     <main class="p-8 max-w-4xl mx-auto">
+        {/* Pass the calculated boolean directly into the React component */}
         <DocsManager 
             client:load 
             tenantId={id} 
