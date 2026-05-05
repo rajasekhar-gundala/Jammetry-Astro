@@ -1,3 +1,4 @@
+// src/pages/api/create-checkout.ts
 import type { APIRoute } from 'astro';
 import Stripe from 'stripe';
 
@@ -18,8 +19,10 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
         // 2. Grab the module they want to buy from the URL (e.g., ?module=doc_pro)
         const targetModule = url.searchParams.get('module');
 
+        // 👇 IMPROVEMENT: If the link is broken or missing a module, send them to pricing!
         if (!targetModule) {
-            return new Response("Missing module selection", { status: 400 });
+            console.warn("⚠️ Missing module selection in checkout link");
+            return redirect('/pricing?error=missing_module', 303);
         }
 
         // 3. Map the requested module to your Stripe Price IDs
@@ -38,12 +41,10 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
             return redirect('/pricing?error=missing_price', 303);
         }
 
-        // Use your explicit production URL from .env, fallback to request origin for local testing
         const baseUrl = process.env.PUBLIC_SITE_URL || url.origin;
 
         // 4. Smart Redirect Logic
-        // Determine exactly which page they should land on after paying
-        let successPath = 'tenants'; // Default drop zone for DaaS, KB, Hosting, All-in-One
+        let successPath = 'tenants'; 
         if (targetModule === 'doc_pro' || targetModule === 'chat') successPath = 'chat';
         if (targetModule === 'extract') successPath = 'extract';
 
@@ -58,10 +59,7 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
             ],
             mode: 'subscription',
             customer_email: locals.user.email, 
-            
             client_reference_id: locals.user.id, 
-            
-            // Pass the specific module in metadata so the webhook knows exactly what to unlock
             metadata: {
                 module: targetModule,
                 userId: locals.user.id
@@ -72,8 +70,6 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
                     userId: locals.user.id
                 }
             },
-            
-            // 👇 FIXED: Routes safely using the successPath logic defined above
             success_url: `${baseUrl}/dashboard/${successPath}?upgrade=success`,
             cancel_url: `${baseUrl}/pricing?upgrade=cancelled`,
         });

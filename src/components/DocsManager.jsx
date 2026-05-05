@@ -130,19 +130,21 @@ export default function DocsManager({ tenantId, initialConfig, isPro }) {
     return (
         <div className="max-w-2xl mx-auto">
             
-            {/* 👇 THE NEW UPGRADE PROMPT FOR FREE USERS */}
+            {/* 👇 FIXED: Replaced the <form> with a clean <a> link to the pricing page! */}
             {!isPro && (
                 <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm">
                     <div>
                         <h3 className="font-bold text-gray-900 text-lg">Unlock Professional Features</h3>
                         <p className="text-gray-600 text-sm mt-1">Upgrade to Pro to enable custom domains and lift upload limitations.</p>
                     </div>
-                    <form action="/api/create-checkout" method="POST" className="shrink-0 w-full md:w-auto">
-                        <input type="hidden" name="tenantId" value={tenantId} />
-                        <button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow-sm transition-colors text-sm">
+                    <div className="shrink-0 w-full md:w-auto">
+                        <a 
+                            href="/pricing?upgrade=daas&reason=locked" 
+                            className="inline-flex justify-center w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow-sm transition-colors text-sm"
+                        >
                             Upgrade to Pro
-                        </button>
-                    </form>
+                        </a>
+                    </div>
                 </div>
             )}
 
