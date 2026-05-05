@@ -82,8 +82,8 @@ const getLinkStyle = (path: string, exact = false, isFallback = false) => {
             { name: 'Analytics', path: '/dashboard/analytics', moduleId: 'knowledgebase' },
             { name: 'Leads', path: '/dashboard/leads', moduleId: 'knowledgebase' },
             { name: 'Docs & AI', path: id ? `/dashboard/tenants/${id}/docs` : '/dashboard/tenants', moduleId: 'daas' },
-            { name: 'Doc Chat', path: '/dashboard/chat', moduleId: 'chat' },
-            { name: 'PDF Extract', path: '/dashboard/extract', moduleId: 'extract' },
+            { name: 'Doc Chat', path: '/dashboard/chat', moduleId: 'chat', newTab: true },
+            { name: 'PDF Extract', path: '/dashboard/extract', moduleId: 'extract', newTab: true },
         ].map(app => {
             // Check if they have access to this specific module OR if they have the all-in-one pass
             const hasAccess = isSuperAdmin || userModules.includes(app.moduleId) || userModules.includes('all-in-one');
@@ -157,7 +157,7 @@ const getLinkStyle = (path: string, exact = false, isFallback = false) => {
 
     {showNav && (
       <footer class="mt-20 py-10 border-t border-gray-50 text-center text-xs text-gray-400">
-        &copy; {new Date().getFullYear()} Jammetry AI. Running on 2 vCPU / 8GB RAM Cluster.
+        &copy; {new Date().getFullYear()} Jammetry AI.
       </footer>
     )}
   </body>
