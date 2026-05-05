@@ -5,6 +5,18 @@ import { marked } from 'marked';
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 
+// 👇 NEW: The Ultimate Check for the Extraction sidebar link
+const userModules = user?.active_modules || [];
+const planType = user?.plan_type || 'free';
+const legacyContext = user?.app_context || '';
+
+const hasExtractAccess = userModules.includes('extract') || 
+                         userModules.includes('doc_pro') || 
+                         userModules.includes('all-in-one') || 
+                         planType === 'all-in-one' ||
+                         legacyContext === 'pdf-extract' || 
+                         legacyContext === 'all-in-one';
+
 const url = new URL(Astro.request.url);
 const activeChatId = url.searchParams.get('id');
 const currentConversationId = activeChatId || Math.random().toString(36).substring(7);
@@ -68,8 +80,8 @@ try {
       <div class="flex gap-3 text-xs font-medium px-1">
         <a href="/dashboard/profile" class="text-gray-400 hover:text-white transition flex items-center gap-1">Profile</a>
 
-        {/* 👇 NEW: Conditionally show the Extraction link based on user permissions */}
-        {['pdf-extract', 'all-in-one'].includes(user.app_context) && (
+        {/* 👇 FIXED: Using the new modular permissions check */}
+        {hasExtractAccess && (
           <a href="/dashboard/extract" class="text-gray-400 hover:text-white transition flex items-center gap-1">Extraction</a>
         )}
 
@@ -121,7 +133,6 @@ try {
       <div class="max-w-3xl mx-auto relative">
         <form id="chat-form" class="relative flex items-center">
           <textarea id="chat-input" rows="1" class="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none" placeholder="Ask about your documents..."></textarea>
-          <!-- Added id="send-btn" to the button for easy targeting -->
           <button id="send-btn" type="submit" class="absolute right-2 bottom-2 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition">
              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
           </button>
