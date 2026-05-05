@@ -9,17 +9,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
     apiVersion: '2023-10-16',
 });
 
-// You will get this secret from the Stripe Developer Dashboard under "Webhooks"
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 export const POST: APIRoute = async ({ request }) => {
-    // 1. Get the raw body and signature (Required for Stripe security verification)
     const signature = request.headers.get('stripe-signature');
     const body = await request.text(); 
 
     let event: Stripe.Event;
 
-    // 2. Verify the webhook was actually sent by Stripe
     try {
         event = stripe.webhooks.constructEvent(body, signature || '', endpointSecret || '');
     } catch (err: any) {
@@ -27,14 +24,10 @@ export const POST: APIRoute = async ({ request }) => {
         return new Response(`Webhook Error: ${err.message}`, { status: 400 });
     }
 
-    // 3. Handle the successful payment event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object as Stripe.Checkout.Session;
         
-        // 👉 NEW: This is now the USER ID, not the Tenant ID!
         const userId = session.client_reference_id; 
-        
-        // 👉 NEW: Grab the specific module they purchased from the metadata we passed in checkout
         const purchasedModule = session.metadata?.module; 
 
         const customerId = session.customer as string;
@@ -42,47 +35,81 @@ export const POST: APIRoute = async ({ request }) => {
 
         if (userId && purchasedModule) {
             try {
-                // 4. Initialize PocketBase as an Admin
-                // Use the internal Docker URL if running in Docker, otherwise fallback to public URL
                 const pbUrl = process.env.PUBLIC_POCKETBASE_URL || "http://pocketbase:8080";
                 const pb = new PocketBase(pbUrl);
                 
-                // Authenticate as superuser to securely modify the user record
                 await pb.collection('_superusers').authWithPassword(
                     process.env.PB_ADMIN_EMAIL!, 
                     process.env.PB_ADMIN_PASSWORD!
                 );
 
-                // 5. Fetch the user to get their current active_modules array
                 const userRecord = await pb.collection('users').getOne(userId);
                 let currentModules: string[] = userRecord.active_modules || [];
+                
+                // 👇 NEW: Determine the correct plan_type based on what they bought
+                let newPlanType = 'pro'; 
 
-                // 6. Append the new module safely
                 if (purchasedModule === 'all-in-one') {
-                    // Unlock everything
                     currentModules = ['chat', 'extract', 'daas', 'knowledgebase', 'hosting'];
+                    newPlanType = 'all-in-one';
+                } else if (purchasedModule === 'doc_pro') {
+                    if (!currentModules.includes('chat')) currentModules.push('chat');
+                    if (!currentModules.includes('extract')) currentModules.push('extract');
                 } else if (!currentModules.includes(purchasedModule)) {
-                    // Append the single module if they don't already have it
                     currentModules.push(purchasedModule);
                 }
 
-                // 7. Update the USER record in PocketBase
+                // 👇 FIXED: Now pushing plan_type and subscription_status to the database!
                 await pb.collection('users').update(userId, {
                     active_modules: currentModules,
+                    plan_type: newPlanType,
+                    subscription_status: 'active',
                     stripe_customer_id: customerId,
                     stripe_subscription_id: subscriptionId,
                 });
 
-                console.log(`✅ Successfully added module '${purchasedModule}' to User ${userId}.`);
+                console.log(`✅ Successfully added module '${purchasedModule}' and set plan to '${newPlanType}' for User ${userId}.`);
             } catch (pbError: any) {
                 console.error(`❌ PocketBase Update Error:`, pbError.message);
                 return new Response("Database update failed", { status: 500 });
             }
-        } else {
-            console.warn("⚠️ Webhook missing userId or module metadata.");
         }
     }
 
-    // Acknowledge receipt to Stripe so it doesn't keep retrying
+    // 🔴 ADDED: Handle cancellations automatically!
+    if (event.type === 'customer.subscription.deleted') {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+
+        try {
+            const pbUrl = process.env.PUBLIC_POCKETBASE_URL || "http://pocketbase:8080";
+            const pb = new PocketBase(pbUrl);
+            
+            await pb.collection('_superusers').authWithPassword(
+                process.env.PB_ADMIN_EMAIL!, 
+                process.env.PB_ADMIN_PASSWORD!
+            );
+
+            // Find the user by their Stripe Customer ID
+            const records = await pb.collection('users').getFullList({
+                filter: `stripe_customer_id="${customerId}"`,
+            });
+
+            if (records.length > 0) {
+                const user = records[0];
+                
+                // Revert them to free tier and strip premium modules
+                await pb.collection('users').update(user.id, {
+                    plan_type: 'free',
+                    subscription_status: 'cancelled',
+                    active_modules: [], // Wipes premium access
+                });
+                console.log(`📉 Subscription cancelled. User ${user.email} downgraded to free.`);
+            }
+        } catch (pbError: any) {
+            console.error(`❌ PocketBase Cancellation Error:`, pbError.message);
+        }
+    }
+
     return new Response(JSON.stringify({ received: true }), { status: 200 });
 };
