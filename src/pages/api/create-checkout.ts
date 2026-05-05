@@ -23,7 +23,6 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
         }
 
         // 3. Map the requested module to your Stripe Price IDs
-        // 👇 FIXED: This now exactly matches your pricing.astro links and Docker environment variables!
         const priceIds: Record<string, string | undefined> = {
             'doc_pro': process.env.STRIPE_PRICE_DOC_PRO,
             'daas': process.env.STRIPE_PRICE_DAAS,
@@ -42,7 +41,13 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
         // Use your explicit production URL from .env, fallback to request origin for local testing
         const baseUrl = process.env.PUBLIC_SITE_URL || url.origin;
 
-        // 4. Create the Stripe Checkout Session
+        // 4. Smart Redirect Logic
+        // Determine exactly which page they should land on after paying
+        let successPath = 'tenants'; // Default drop zone for DaaS, KB, Hosting, All-in-One
+        if (targetModule === 'doc_pro' || targetModule === 'chat') successPath = 'chat';
+        if (targetModule === 'extract') successPath = 'extract';
+
+        // 5. Create the Stripe Checkout Session
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: [
@@ -68,12 +73,12 @@ export const GET: APIRoute = async ({ locals, redirect, url }) => {
                 }
             },
             
-            // Smart Redirect: If they bought doc_pro, send them to chat. Otherwise, send to their app.
-            success_url: `${baseUrl}/dashboard/${targetModule === 'doc_pro' ? 'chat' : (targetModule === 'all-in-one' ? 'tenants' : targetModule)}?upgrade=success`,
+            // 👇 FIXED: Routes safely using the successPath logic defined above
+            success_url: `${baseUrl}/dashboard/${successPath}?upgrade=success`,
             cancel_url: `${baseUrl}/pricing?upgrade=cancelled`,
         });
 
-        // 5. Instantly redirect the user's browser to the Stripe payment page
+        // 6. Instantly redirect the user's browser to the Stripe payment page
         if (session.url) {
             return redirect(session.url, 303);
         } else {

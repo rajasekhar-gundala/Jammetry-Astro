@@ -2,12 +2,28 @@ import { defineMiddleware } from "astro:middleware";
 import PocketBase from "pocketbase";
 
 export const onRequest = defineMiddleware(async ({ locals, request, redirect, url }, next) => {
-    const pb = new PocketBase("http://pocketbase:8080");
+    // Use environment variable for PocketBase URL to prevent hardcoding issues across environments
+    const pbUrl = process.env.PUBLIC_POCKETBASE_URL || "http://pocketbase:8080";
+    const pb = new PocketBase(pbUrl);
     
-    // Read the RAW cookie header directly from the browser request
+    // Read the RAW cookie header
     pb.authStore.loadFromCookie(request.headers.get("cookie") || "");
 
+    // 1. FRESHNESS CHECK: Did they just return from a Stripe checkout?
+    const isUpgradeSuccess = url.searchParams.get('upgrade') === 'success';
+
     if (pb.authStore.isValid) {
+        if (isUpgradeSuccess) {
+            try {
+                console.log("🔄 User returned from Stripe. Refreshing permissions...");
+                // Give the Stripe Webhook 1.5 seconds to finish updating PocketBase in the background
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                // Force fetch the newly updated user record from the database!
+                await pb.collection('users').authRefresh();
+            } catch (e) {
+                console.error("Failed to refresh user auth after upgrade", e);
+            }
+        }
         locals.user = pb.authStore.model; 
     } else {
         pb.authStore.clear();
@@ -21,31 +37,24 @@ export const onRequest = defineMiddleware(async ({ locals, request, redirect, ur
     const isLoginPage = url.pathname === "/login";
     const isSignupPage = url.pathname === "/signup";
 
-    // 1. Kick out unauthenticated users
+    // Kick out unauthenticated users
     if ((isAdminRoute || isDashboardRoute) && !locals.user) {
         return redirect("/login");
     }
 
-    // 2. Prevent logged-in users from seeing login/signup pages
+    // Prevent logged-in users from seeing login/signup pages
     if ((isLoginPage || isSignupPage) && locals.user) {
         const modules = locals.user.active_modules || [];
         const legacy = locals.user.app_context || '';
         
-        // Route them to their specific app!
         if (modules.includes('extract') || legacy === 'pdf-extract') return redirect('/dashboard/extract');
-        if (modules.includes('chat')) return redirect('/dashboard/chat');
+        if (modules.includes('chat') || legacy === 'docs-chat') return redirect('/dashboard/chat');
         
-        return redirect('/dashboard/tenants');
+        return redirect("/dashboard/tenants");
     }
 
-    // 2. Prevent logged-in users from seeing login/signup pages
-    //if ((isLoginPage || isSignupPage) && locals.user) {
-    //    return redirect("/dashboard/tenants");
-    //}
-
-    // --- 3. UNIFIED SUPER-APP ROUTER GUARD ---
+    // --- UNIFIED SUPER-APP ROUTER GUARD ---
     if (isDashboardRoute && locals.user) {
-        // Map URL paths to the required PocketBase module IDs
         const accessMap = [
             { path: '/dashboard/chat', requiredModule: 'chat' },
             { path: '/dashboard/extract', requiredModule: 'extract' },
@@ -54,24 +63,24 @@ export const onRequest = defineMiddleware(async ({ locals, request, redirect, ur
             { path: '/dashboard/hosting', requiredModule: 'hosting' },
         ];
 
-        // Get active modules, with backward compatibility for legacy 'app_context'
         let userModules = locals.user.active_modules || [];
         const legacyContext = locals.user.app_context || '';
 
+        // Backward compatibility mappings
         if (legacyContext === 'all-in-one') {
             userModules = ['chat', 'extract', 'daas', 'knowledgebase', 'hosting'];
-        } else if (legacyContext === 'jammetry') {
-            userModules = [...userModules, 'chat']; // Assuming old jammetry was chat
+        } else if (legacyContext === 'jammetry' || legacyContext === 'docs-chat') {
+            userModules = [...userModules, 'chat']; 
+        } else if (legacyContext === 'pdf-extract') {
+            userModules = [...userModules, 'extract'];
         } else if (legacyContext === 'daas') {
             userModules = [...userModules, 'daas', 'knowledgebase'];
         }
 
-        // Check which module they are trying to access
         for (const route of accessMap) {
             if (url.pathname.startsWith(route.path)) {
-                // If they don't have the module, block them and send to upgrade page!
                 if (!userModules.includes(route.requiredModule)) {
-                    console.log(`🔒 Blocked access to ${route.path}. User lacks '${route.requiredModule}' module.`);
+                    console.log(`🔒 Blocked access to ${route.path}. User lacks '${route.requiredModule}'.`);
                     return redirect(`/pricing?upgrade=${route.requiredModule}&reason=locked`);
                 }
             }
@@ -80,7 +89,8 @@ export const onRequest = defineMiddleware(async ({ locals, request, redirect, ur
 
     const response = await next();
 
-    // Sync the cookie back to the browser to keep the session alive.
+    // Sync the cookie back to the browser.
+    // If we just did an authRefresh, this automatically saves the new permissions to their browser!
     if (pb.authStore.isValid) {
         response.headers.append('set-cookie', pb.authStore.exportToCookie({ 
             httpOnly: true, 
@@ -88,6 +98,12 @@ export const onRequest = defineMiddleware(async ({ locals, request, redirect, ur
             sameSite: 'lax',
             path: '/' 
         }));
+        
+        // If they just upgraded, cleanly redirect them to the same page without the ?upgrade=success 
+        // parameter so they don't trigger the 1.5s delay if they manually refresh the page later.
+        if (isUpgradeSuccess) {
+            return redirect(url.pathname);
+        }
     }
 
     return response;
