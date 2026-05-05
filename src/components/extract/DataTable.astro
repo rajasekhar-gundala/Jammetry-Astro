@@ -210,10 +210,24 @@ const parseJSON = (data: any) => {
         deleteModalText.innerText = message;
         deleteModal.classList.remove('hidden');
         deleteModal.classList.add('flex');
+        
         pendingDeleteAction = async () => {
             confirmDeleteBtn.innerText = "Deleting...";
             confirmDeleteBtn.disabled = true;
-            await executeDeleteFn();
+            
+            try {
+                await executeDeleteFn();
+            } catch (err) {
+                console.error(err);
+                alert("A network error occurred while deleting.");
+            }
+            
+            // 👇 FIX: Always reset the UI state if the page didn't auto-reload
+            confirmDeleteBtn.innerText = "Delete Records";
+            confirmDeleteBtn.disabled = false;
+            deleteModal.classList.add('hidden');
+            deleteModal.classList.remove('flex');
+            pendingDeleteAction = null;
         };
     }
 
@@ -223,21 +237,43 @@ const parseJSON = (data: any) => {
         pendingDeleteAction = null;
     });
 
-    confirmDeleteBtn?.addEventListener('click', () => { if (pendingDeleteAction) pendingDeleteAction(); });
+    confirmDeleteBtn?.addEventListener('click', () => { 
+        if (pendingDeleteAction) pendingDeleteAction(); 
+    });
 
     document.getElementById('bulkDeleteBtn')?.addEventListener('click', () => {
         const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
         triggerDeleteModal(`Are you sure you want to delete ${selectedIds.length} selected record(s)?`, async () => {
-            const res = await fetch('/delete-record', { method: 'POST', body: JSON.stringify({ ids: selectedIds }), headers: { 'Content-Type': 'application/json' } });
-            if (res.ok) window.location.reload();
+            // 👇 FIX: Corrected API path
+            const res = await fetch('/api/extract/delete-record', { 
+                method: 'POST', 
+                body: JSON.stringify({ ids: selectedIds }), 
+                headers: { 'Content-Type': 'application/json' } 
+            });
+            
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert("Failed to delete records. Check server logs.");
+            }
         });
     });
 
     document.querySelectorAll('.single-delete-btn').forEach(btn => btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
         triggerDeleteModal('Are you sure you want to delete this invoice record?', async () => {
-            const res = await fetch('/delete-record', { method: 'POST', body: JSON.stringify({ id }), headers: { 'Content-Type': 'application/json' } });
-            if (res.ok) window.location.reload();
+            // 👇 FIX: Corrected API path
+            const res = await fetch('/api/extract/delete-record', { 
+                method: 'POST', 
+                body: JSON.stringify({ id }), 
+                headers: { 'Content-Type': 'application/json' } 
+            });
+            
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert("Failed to delete record. Check server logs.");
+            }
         });
     }));
 </script>
