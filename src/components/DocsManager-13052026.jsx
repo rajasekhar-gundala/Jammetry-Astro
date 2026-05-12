@@ -6,7 +6,6 @@ export default function DocsManager({ tenantId, initialConfig, isPro }) {
     
     const [config, setConfig] = useState(initialConfig || {
         title: 'My Docs',
-        theme: 'default', // 👇 NEW: Added theme to the default state
         primaryColor: '#111827',
         customDomain: '',
         footerText: 'Build production-ready documentation in seconds.',
@@ -131,19 +130,21 @@ export default function DocsManager({ tenantId, initialConfig, isPro }) {
     return (
         <div className="max-w-2xl mx-auto">
             
-            {/* THE NEW UPGRADE PROMPT FOR FREE USERS */}
+            {/* 👇 FIXED: Replaced the <form> with a clean <a> link to the pricing page! */}
             {!isPro && (
                 <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm">
                     <div>
                         <h3 className="font-bold text-gray-900 text-lg">Unlock Professional Features</h3>
                         <p className="text-gray-600 text-sm mt-1">Upgrade to Pro to enable custom domains and lift upload limitations.</p>
                     </div>
-                    <form action="/api/create-checkout" method="POST" className="shrink-0 w-full md:w-auto">
-                        <input type="hidden" name="tenantId" value={tenantId} />
-                        <button type="submit" className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow-sm transition-colors text-sm">
+                    <div className="shrink-0 w-full md:w-auto">
+                        <a 
+                            href="/pricing?upgrade=daas&reason=locked" 
+                            className="inline-flex justify-center w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow-sm transition-colors text-sm"
+                        >
                             Upgrade to Pro
-                        </button>
-                    </form>
+                        </a>
+                    </div>
                 </div>
             )}
 
@@ -161,33 +162,16 @@ export default function DocsManager({ tenantId, initialConfig, isPro }) {
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* 👇 NEW: Added Appearance Theme Selector */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Appearance Theme</label>
-                            <select 
-                                value={config.theme} 
-                                onChange={(e) => setConfig({...config, theme: e.target.value})}
-                                className="w-full border-gray-300 rounded-md shadow-sm p-2 border bg-white"
-                            >
-                                <option value="default">Default (Modern)</option>
-                                <option value="sky">Sky (Blue & Airy)</option>
-                                <option value="ruby">Ruby (Red & Bold)</option>
-                                <option value="retro">Retro (Terminal/Hacker)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Primary Brand Color</label>
-                            <div className="flex items-center gap-3 h-[42px]">
-                                <input 
-                                    type="color" 
-                                    value={config.primaryColor}
-                                    onChange={(e) => setConfig({...config, primaryColor: e.target.value})}
-                                    className="h-full w-12 rounded border-gray-300 cursor-pointer p-1 border"
-                                />
-                                <span className="text-sm text-gray-500 font-mono">{config.primaryColor}</span>
-                            </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Primary Brand Color</label>
+                        <div className="flex items-center gap-3">
+                            <input 
+                                type="color" 
+                                value={config.primaryColor}
+                                onChange={(e) => setConfig({...config, primaryColor: e.target.value})}
+                                className="h-10 w-10 rounded border-gray-300 cursor-pointer"
+                            />
+                            <span className="text-sm text-gray-500 font-mono">{config.primaryColor}</span>
                         </div>
                     </div>
 
