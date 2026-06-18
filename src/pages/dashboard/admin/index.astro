@@ -227,7 +227,7 @@ const maxCount = Math.max(...growthData.map(d => d.count), 1);
                 // Generate a temporary password
                 const tempPassword = Math.random().toString(36).slice(-10) + "!";
 
-                const response = await fetch('https://api.rajasekhar.digital/api/approve-user', {
+                const response = await fetch('https://api.jammetry.com/api/approve-user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

@@ -183,7 +183,7 @@ if (Astro.request.method === 'POST') {
           manageBtn.disabled = true;
           try {
             // Points to your dedicated Node.js API subdomain
-            const res = await fetch('https://api.rajasekhar.digital/api/portal', {
+            const res = await fetch('https://api.jammetry.com/api/portal', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userId })

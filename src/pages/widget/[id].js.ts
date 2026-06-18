@@ -8,9 +8,9 @@ export const GET: APIRoute = async ({ params, request }) => {
   if (!tenantId) return new Response("Missing ID", { status: 400 });
 
   const ASTRO_LIVE_URL = "https://jammetry.com"; 
-  const API_BASE = "https://api.rajasekhar.digital/api/widget"; 
+  const API_BASE = "https://api.jammetry.com/api/widget"; 
 
-  const pb = new PocketBase(process.env.PB_URL || "http://pocketbase:8080");
+  const pb = new PocketBase(process.env.PB_URL || "http://rag-pb:8080");
   let botName = "AI Assistant";
   let themeColor = "#2563eb";
   let welcomeMessage = "Hello! How can I help you today?";
