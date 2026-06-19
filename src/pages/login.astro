@@ -11,7 +11,7 @@ if (Astro.request.method === 'POST') {
     const password = data.get('password')?.toString().trim();
 
     if (email && password) {
-      const pb = new PocketBase("http://pocketbase:8080");
+      const pb = new PocketBase("http://rag-pb:8080");
       
       await pb.collection('users').authWithPassword(email, password);
       

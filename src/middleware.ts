@@ -3,7 +3,7 @@ import PocketBase from "pocketbase";
 
 export const onRequest = defineMiddleware(async ({ locals, request, redirect, url }, next) => {
     // Use environment variable for PocketBase URL to prevent hardcoding issues across environments
-    const pbUrl = process.env.PUBLIC_POCKETBASE_URL || "http://pocketbase:8080";
+    const pbUrl = process.env.PUBLIC_POCKETBASE_URL || "http://rag-pb:8080";
     const pb = new PocketBase(pbUrl);
     
     // Read the RAW cookie header
