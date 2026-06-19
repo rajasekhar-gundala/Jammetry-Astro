@@ -92,7 +92,7 @@ export default function DocsManager({ tenantId, initialConfig, isPro }) {
                 formData.append('files', file, encodedPath);
             });
 
-            const uploadRes = await fetch(`https://api.rajasekhar.digital/api/daas/upload/${tenantId}`, {
+            const uploadRes = await fetch(`https://api.jammetry.com/api/daas/upload/${tenantId}`, {
                 method: 'POST',
                 body: formData
             });
@@ -102,7 +102,7 @@ export default function DocsManager({ tenantId, initialConfig, isPro }) {
             setStatus('building');
             setMessage('Building site and training AI...');
 
-            const buildRes = await fetch(`https://api.rajasekhar.digital/api/daas/build/${tenantId}`, {
+            const buildRes = await fetch(`https://api.jammetry.com/api/daas/build/${tenantId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ config })
@@ -111,7 +111,7 @@ export default function DocsManager({ tenantId, initialConfig, isPro }) {
             if (!buildRes.ok) throw new Error("Build failed");
 
             if (config.customDomain && isPro) {
-                await fetch(`https://api.rajasekhar.digital/api/daas/custom-domain`, {
+                await fetch(`https://api.jammetry.com/api/daas/custom-domain`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tenantId, customDomain: config.customDomain })
