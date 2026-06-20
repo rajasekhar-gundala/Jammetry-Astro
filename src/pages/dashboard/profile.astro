@@ -14,7 +14,7 @@ let error = '';
 
 // 2. Dynamic Navigation & Context Logic
 // This ensures a PDF user doesn't see "Back to Chat"
-const backLink = user.app_context === 'pdf-extract' ? '/extract' : '/chat';
+const backLink = user.app_context === 'pdf-extract' ? '/dashboard/extract' : '/dashboard/chat';
 const backLabel = user.app_context === 'pdf-extract' ? 'Back to Extraction' : 'Back to Chat';
 
 // 3. Fetch PDF Extraction Stats
@@ -126,7 +126,7 @@ if (Astro.request.method === 'POST') {
 
             {user.plan !== 'pro' ? (
               <a
-                href={`https://buy.stripe.com/test_bJe8wRfSmgkS7S79lh4Rq00?client_reference_id=${user.id}&prefilled_email=${user.email}`}
+                href={`/dashboard/billing}`}
                 class="mt-8 block w-full bg-white hover:bg-gray-100 text-gray-950 text-center font-bold py-3 rounded-xl transition shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] flex items-center justify-center gap-2"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
