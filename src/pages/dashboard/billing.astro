@@ -37,7 +37,7 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Billing & Usage | AI Copilot</title>
     
-    <script src="https://www.paypal.com/sdk/js?client-id=AdSwDrUHYLD9nXYLIbFr364_lQcNIi1ClmhaXd6feCMKi-dLveGmq2NQZ1TiMEjRKP_CBXPQD5aNs23u&currency=USD"></script>
+    <script is:inline src="https://www.paypal.com/sdk/js?client-id=AdSwDrUHYLD9nXYLIbFr364_lQcNIi1ClmhaXd6feCMKi-dLveGmq2NQZ1TiMEjRKP_CBXPQD5aNs23u&currency=USD"></script>
   </head>
   <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen">
 
@@ -174,54 +174,65 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
         });
       }
 
-      // 2. PayPal Workflow
-      if (document.getElementById('paypal-button-container')) {
-        paypal.Buttons({
-          style: {
-            layout: 'horizontal',
-            color:  'gold',
-            shape:  'rect',
-            label:  'paypal'
-          },
-          createOrder: async () => {
-            const res = await fetch("https://api.jammetry.com/api/paypal/create-order", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ userId: userId }),
-            });
-            const orderData = await res.json();
-            
-            if (orderData.error) {
-                alert("Failed to initialize PayPal order: " + orderData.error);
-                return;
-            }
-            return orderData.id;
-          },
-          onApprove: async (data) => {
-            // Show a processing state on the screen while capturing
-            document.getElementById('paypal-button-container').innerHTML = '<div class="text-white text-sm font-medium animate-pulse">Processing Payment...</div>';
+      // 2. PayPal Workflow with Network Buffer
+      const renderPayPal = () => {
+        // If the container doesn't exist (e.g., user is already Pro), do nothing
+        if (!document.getElementById('paypal-button-container')) return;
 
-            const res = await fetch("https://api.jammetry.com/api/paypal/capture-order", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ orderID: data.orderID, userId: userId }),
-            });
-            const captureData = await res.json();
-            
-            if (captureData.success) {
-              alert("Upgrade successful! Welcome to Pro.");
-              window.location.reload(); // Hard reload updates PocketBase auth and UI state
-            } else {
-              alert("Payment capture failed. Please contact support.");
-              window.location.reload();
+        // If the SDK is fully downloaded, render the buttons
+        if (window.paypal) {
+          window.paypal.Buttons({
+            style: {
+              layout: 'horizontal',
+              color:  'gold',
+              shape:  'rect',
+              label:  'paypal'
+            },
+            createOrder: async () => {
+              const res = await fetch("https://api.jammetry.com/api/paypal/create-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: userId }),
+              });
+              const orderData = await res.json();
+              
+              if (orderData.error) {
+                  alert("Failed to initialize PayPal order: " + orderData.error);
+                  return;
+              }
+              return orderData.id;
+            },
+            onApprove: async (data) => {
+              document.getElementById('paypal-button-container').innerHTML = '<div class="text-white text-sm font-medium animate-pulse">Processing Payment...</div>';
+
+              const res = await fetch("https://api.jammetry.com/api/paypal/capture-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderID: data.orderID, userId: userId }),
+              });
+              const captureData = await res.json();
+              
+              if (captureData.success) {
+                alert("Upgrade successful! Welcome to Pro.");
+                window.location.reload(); 
+              } else {
+                alert("Payment capture failed. Please contact support.");
+                window.location.reload();
+              }
+            },
+            onError: (err) => {
+              console.error("PayPal Frontend Error:", err);
+              alert("A network error occurred with PayPal. Please try again.");
             }
-          },
-          onError: (err) => {
-            console.error("PayPal Frontend Error:", err);
-            alert("A network error occurred with PayPal. Please try again.");
-          }
-        }).render("#paypal-button-container");
-      }
+          }).render("#paypal-button-container");
+        } else {
+          // If the SDK is still downloading, wait 100ms and check again
+          setTimeout(renderPayPal, 100);
+        }
+      };
+
+      // Trigger the loader
+      renderPayPal();
     </script>
   </body>
 </html>
