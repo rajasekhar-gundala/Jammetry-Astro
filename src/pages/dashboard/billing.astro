@@ -3,25 +3,36 @@ import '../../styles/global.css';
 
 const pb = Astro.locals.pb;
 
+// 1. Protect the route
 if (!pb.authStore.isValid) {
   return Astro.redirect('/login');
 }
 
-// 👇 Force fetch live user data to ensure instant UI updates
 let user = Astro.locals.user;
+
+// 🌟 THE CRITICAL SYNC FIX: Force a token refresh if the database was updated out-of-band
 try {
-  user = await pb.collection('users').getOne(user.id, { $autoCancel: false });
+  // 1. Perform a fresh authorization refresh against the live database
+  const authData = await pb.collection('users').authRefresh({}, { $autoCancel: false });
+  user = authData.record;
+  
+  // 2. Serialize the shiny new Pro token back into the browser's cookie jar
+  const cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
+  Astro.response.headers.append('set-cookie', cookie);
 } catch (e) {
-  console.error("Live DB fetch failed, using cookie fallback", e);
+  console.error("Session token refresh sync failed:", e);
 }
 
-// Robust Pro Check
-const isPro = user.plan === 'pro' || user.plan === 'Pro' || user.plan_type === 'all-in-one' || (user.active_modules || []).includes('all-in-one');
+// Robust Pro evaluation logic
+const isPro = user.plan === 'pro' || user.plan === 'Pro' || user.plan_type === 'all-in-one';
 
+// 2. Fetch Usage Stats
 let pdfCount = 0;
 if (user.app_context === 'pdf-extract') {
   try {
-    const result = await pb.collection('sales_data').getList(1, 1, { filter: `user_id = "${user.id}"` });
+    const result = await pb.collection('sales_data').getList(1, 1, {
+      filter: `user_id = "${user.id}"`,
+    });
     pdfCount = result.totalItems;
   } catch (err) {}
 }

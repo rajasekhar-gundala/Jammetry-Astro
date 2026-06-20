@@ -3,41 +3,47 @@ import '../../styles/global.css';
 
 const pb = Astro.locals.pb;
 
-// 1. Protect the route - ensure session is active
+// 1. Protect the route
 if (!pb.authStore.isValid) {
   return Astro.redirect('/login');
 }
 
-// 👇 THE FIX: Force fetch the live user record to bypass stale cookies!
 let user = Astro.locals.user;
+
+// 🌟 THE CRITICAL SYNC FIX: Force a token refresh to update the profile cookie state
 try {
-  user = await pb.collection('users').getOne(user.id, { $autoCancel: false });
+  const authData = await pb.collection('users').authRefresh({}, { $autoCancel: false });
+  user = authData.record;
+  
+  const cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
+  Astro.response.headers.append('set-cookie', cookie);
 } catch (e) {
-  console.error("Live DB fetch failed, using cookie fallback", e);
+  console.error("Profile session sync failed:", e);
 }
 
-// Create a bulletproof Pro check that catches both Stripe and PayPal upgrade paths
-const isPro = user.plan === 'pro' || user.plan === 'Pro' || user.plan_type === 'all-in-one' || (user.active_modules || []).includes('all-in-one');
+const isPro = user.plan === 'pro' || user.plan === 'Pro' || user.plan_type === 'all-in-one';
 
 let message = '';
 let error = '';
 
-// 2. Dynamic Navigation
+// 2. Dynamic Navigation Logic
 const backLink = user.app_context === 'pdf-extract' ? '/dashboard/extract' : '/dashboard/chat';
 const backLabel = user.app_context === 'pdf-extract' ? 'Back to Extraction' : 'Back to Chat';
 
-// 3. Fetch PDF Stats
+// 3. Fetch PDF Extraction Stats
 let pdfCount = 0;
 if (user.app_context === 'pdf-extract') {
   try {
-    const result = await pb.collection('sales_data').getList(1, 1, { filter: `user_id = "${user.id}"` });
+    const result = await pb.collection('sales_data').getList(1, 1, {
+      filter: `user_id = "${user.id}"`,
+    });
     pdfCount = result.totalItems;
   } catch (err) {
     console.error("Stats Fetch Error:", err);
   }
 }
 
-// 4. Handle Password Change
+// 4. Handle Password Change Form Submission
 if (Astro.request.method === 'POST') {
   try {
     const data = await Astro.request.formData();
