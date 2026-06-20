@@ -3,35 +3,29 @@ import '../../styles/global.css';
 
 const pb = Astro.locals.pb;
 
-// 1. Protect the route - ensure session is active
 if (!pb.authStore.isValid) {
   return Astro.redirect('/login');
 }
 
-// 👇 THE FIX: Fetch the absolute latest user data directly from the DB!
-// We cannot rely on Astro.locals.user here because the cookie becomes stale immediately after a background payment upgrade.
-let user;
+// 👇 Force fetch live user data to ensure instant UI updates
+let user = Astro.locals.user;
 try {
-  user = await pb.collection('users').getOne(Astro.locals.user.id);
+  user = await pb.collection('users').getOne(user.id, { $autoCancel: false });
 } catch (e) {
-  user = Astro.locals.user; // Fallback just in case
+  console.error("Live DB fetch failed, using cookie fallback", e);
 }
 
-// 2. Fetch Usage Stats (Mirrors Profile Logic)
+// Robust Pro Check
+const isPro = user.plan === 'pro' || user.plan === 'Pro' || user.plan_type === 'all-in-one' || (user.active_modules || []).includes('all-in-one');
+
 let pdfCount = 0;
 if (user.app_context === 'pdf-extract') {
   try {
-    const result = await pb.collection('sales_data').getList(1, 1, {
-      filter: `user_id = "${user.id}"`,
-    });
+    const result = await pb.collection('sales_data').getList(1, 1, { filter: `user_id = "${user.id}"` });
     pdfCount = result.totalItems;
-  } catch (err) {
-    console.error("Stats Fetch Error:", err);
-  }
+  } catch (err) {}
 }
 
-// Calculate progress bar percentages (Handle Pro infinity cleanly)
-const isPro = user.plan === 'pro' || user.plan_type === 'all-in-one';
 const pdfLimit = isPro ? 100 : 3; 
 const docLimit = isPro ? 100 : 3;
 const pdfPercent = isPro ? 100 : Math.min((pdfCount / pdfLimit) * 100, 100);
@@ -42,18 +36,28 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Billing & Usage | AI Copilot</title>
-    
-    <script is:inline src="https://www.paypal.com/sdk/js?client-id=AdSwDrUHYLD9nXYLIbFr364_lQcNIi1ClmhaXd6feCMKi-dLveGmq2NQZ1TiMEjRKP_CBXPQD5aNs23u&currency=USD"></script>
+    <script is:inline src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=USD"></script>
   </head>
-  <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen">
+  <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen relative">
+
+    <!-- 👇 THE NEW CUSTOM SUCCESS MODAL -->
+    <div id="success-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 text-center shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] animate-in fade-in zoom-in duration-300">
+        <div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <h3 class="text-2xl font-bold text-white mb-2">Upgrade Successful!</h3>
+        <p class="text-gray-400 mb-8">Welcome to Pro. Your account has been upgraded and all AI modules are now unlocked.</p>
+        <button id="modal-close-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-blue-600/20">
+          Continue to Dashboard
+        </button>
+      </div>
+    </div>
 
     <nav class="border-b border-gray-800 bg-gray-900">
       <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div class="text-xl font-bold text-white">
-          Billing & Usage
-        </div>
+        <div class="text-xl font-bold text-white">Billing & Usage</div>
         <a href="/dashboard/profile" class="text-gray-400 hover:text-white transition text-sm flex items-center gap-2">
           &larr; Back to Profile
         </a>
@@ -67,7 +71,7 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
           <h2 class="text-lg font-bold text-white mb-2 relative z-10">Current Plan</h2>
           
           <div class="flex items-center gap-2 mb-8 relative z-10">
-            {user.plan === 'pro' ? (
+            {isPro ? (
               <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-[0_0_15px_-3px_rgba(37,99,235,0.5)]">
                 Pro Tier
               </span>
@@ -83,7 +87,7 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
               <div>
                 <div class="flex justify-between text-sm mb-2">
                   <span class="text-gray-400 font-medium">Extractions</span>
-                  <span class="text-white font-bold">{pdfCount} <span class="text-gray-500 font-normal">/ {user.plan === 'pro' ? '∞' : '3'}</span></span>
+                  <span class="text-white font-bold">{pdfCount} <span class="text-gray-500 font-normal">/ {isPro ? '∞' : '3'}</span></span>
                 </div>
                 <div class="w-full bg-gray-950 border border-gray-800 rounded-full h-2.5 overflow-hidden">
                   <div class="bg-blue-500 h-full rounded-full transition-all duration-500" style={`width: ${pdfPercent}%`}></div>
@@ -93,7 +97,7 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
               <div>
                 <div class="flex justify-between text-sm mb-2">
                   <span class="text-gray-400 font-medium">Indexed Docs</span>
-                  <span class="text-white font-bold">{user.documentCount || 0} <span class="text-gray-500 font-normal">/ {user.plan === 'pro' ? '∞' : '3'}</span></span>
+                  <span class="text-white font-bold">{user.documentCount || 0} <span class="text-gray-500 font-normal">/ {isPro ? '∞' : '3'}</span></span>
                 </div>
                 <div class="w-full bg-gray-950 border border-gray-800 rounded-full h-2.5 overflow-hidden">
                   <div class="bg-blue-500 h-full rounded-full transition-all duration-500" style={`width: ${docPercent}%`}></div>
@@ -107,7 +111,7 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
       <div class="md:col-span-2">
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
           
-          {user.plan !== 'pro' && (
+          {!isPro && (
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
           )}
 
@@ -125,7 +129,7 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
               </div>
             </div>
 
-            {user.plan !== 'pro' ? (
+            {!isPro ? (
               <div class="relative z-10 w-full sm:w-[200px]">
                 <div id="paypal-button-container"></div>
               </div>
@@ -144,7 +148,7 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
             <button 
               id="manage-billing-btn"
               class="text-sm font-bold flex items-center gap-2 transition-colors focus:outline-none"
-              class:list={[user.plan === 'pro' ? "text-blue-500 hover:text-blue-400" : "text-gray-500 hover:text-gray-400"]}
+              class:list={[isPro ? "text-blue-500 hover:text-blue-400" : "text-gray-500 hover:text-gray-400"]}
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
               Open Stripe Portal
@@ -157,7 +161,6 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
     </main>
 
     <script define:vars={{ userId: user.id }}>
-      // 1. Stripe Portal Logic (Legacy fallback)
       const manageBtn = document.getElementById('manage-billing-btn');
       if (manageBtn) {
         manageBtn.addEventListener('click', async () => {
@@ -182,28 +185,18 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
         });
       }
 
-      // 2. PayPal Workflow with Network Buffer
       const renderPayPal = () => {
-        // If the container doesn't exist (e.g., user is already Pro), do nothing
         if (!document.getElementById('paypal-button-container')) return;
 
-        // If the SDK is fully downloaded, render the buttons
         if (window.paypal) {
           window.paypal.Buttons({
-            style: {
-              layout: 'horizontal',
-              color:  'gold',
-              shape:  'rect',
-              label:  'paypal'
-            },
+            style: { layout: 'horizontal', color: 'gold', shape: 'rect', label: 'paypal' },
             createOrder: async () => {
               const res = await fetch("https://api.jammetry.com/api/paypal/create-order", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+                method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ userId: userId }),
               });
               const orderData = await res.json();
-              
               if (orderData.error) {
                   alert("Failed to initialize PayPal order: " + orderData.error);
                   return;
@@ -214,15 +207,19 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
               document.getElementById('paypal-button-container').innerHTML = '<div class="text-white text-sm font-medium animate-pulse">Processing Payment...</div>';
 
               const res = await fetch("https://api.jammetry.com/api/paypal/capture-order", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+                method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ orderID: data.orderID, userId: userId }),
               });
               const captureData = await res.json();
               
               if (captureData.success) {
-                alert("Upgrade successful! Welcome to Pro.");
-                window.location.reload(); 
+                // 👇 Show the custom Tailwind Modal instead of alert()
+                document.getElementById('success-modal').classList.remove('hidden');
+                
+                // When they click "Continue", reload the page to apply the Pro UI
+                document.getElementById('modal-close-btn').addEventListener('click', () => {
+                  window.location.reload();
+                });
               } else {
                 alert("Payment capture failed. Please contact support.");
                 window.location.reload();
@@ -234,12 +231,10 @@ const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit)
             }
           }).render("#paypal-button-container");
         } else {
-          // If the SDK is still downloading, wait 100ms and check again
           setTimeout(renderPayPal, 100);
         }
       };
 
-      // Trigger the loader
       renderPayPal();
     </script>
   </body>

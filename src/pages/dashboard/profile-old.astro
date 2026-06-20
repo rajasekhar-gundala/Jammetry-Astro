@@ -8,46 +8,47 @@ if (!pb.authStore.isValid) {
   return Astro.redirect('/login');
 }
 
-// 👇 THE FIX: Force fetch the live user record to bypass stale cookies!
-let user = Astro.locals.user;
-try {
-  user = await pb.collection('users').getOne(user.id, { $autoCancel: false });
-} catch (e) {
-  console.error("Live DB fetch failed, using cookie fallback", e);
-}
-
-// Create a bulletproof Pro check that catches both Stripe and PayPal upgrade paths
-const isPro = user.plan === 'pro' || user.plan === 'Pro' || user.plan_type === 'all-in-one' || (user.active_modules || []).includes('all-in-one');
-
+const user = Astro.locals.user;
 let message = '';
 let error = '';
 
-// 2. Dynamic Navigation
+// 2. Dynamic Navigation & Context Logic
+// This ensures a PDF user doesn't see "Back to Chat"
 const backLink = user.app_context === 'pdf-extract' ? '/dashboard/extract' : '/dashboard/chat';
 const backLabel = user.app_context === 'pdf-extract' ? 'Back to Extraction' : 'Back to Chat';
 
-// 3. Fetch PDF Stats
+// 3. Fetch PDF Extraction Stats
+// We only query the sales_data collection if the user is in that context
 let pdfCount = 0;
 if (user.app_context === 'pdf-extract') {
   try {
-    const result = await pb.collection('sales_data').getList(1, 1, { filter: `user_id = "${user.id}"` });
+    const result = await pb.collection('sales_data').getList(1, 1, {
+      filter: `user_id = "${user.id}"`,
+    });
     pdfCount = result.totalItems;
   } catch (err) {
     console.error("Stats Fetch Error:", err);
   }
 }
 
-// 4. Handle Password Change
+// 4. Handle Password Change Form Submission
 if (Astro.request.method === 'POST') {
   try {
     const data = await Astro.request.formData();
+    const oldPassword = data.get('oldPassword');
+    const password = data.get('password');
+    const passwordConfirm = data.get('passwordConfirm');
+
+    // PocketBase requires oldPassword to verify identity for client-side updates
     await pb.collection('users').update(user.id, {
-      oldPassword: data.get('oldPassword'),
-      password: data.get('password'),
-      passwordConfirm: data.get('passwordConfirm')
+      oldPassword,
+      password,
+      passwordConfirm
     });
+
     message = 'Password updated successfully!';
   } catch (err) {
+    console.error(err);
     error = 'Failed to update password. Please check your old password and try again.';
   }
 }
@@ -64,7 +65,9 @@ if (Astro.request.method === 'POST') {
 
     <nav class="border-b border-gray-800 bg-gray-900">
       <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div class="text-xl font-bold text-white">Settings</div>
+        <div class="text-xl font-bold text-white">
+          Settings
+        </div>
         <a href={backLink} class="text-gray-400 hover:text-white transition text-sm flex items-center gap-2">
           &larr; {backLabel}
         </a>
@@ -76,7 +79,7 @@ if (Astro.request.method === 'POST') {
       <div class="md:col-span-1 space-y-6">
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 relative overflow-hidden">
 
-          {isPro && (
+          {user.plan === 'pro' && (
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/20 blur-3xl rounded-full pointer-events-none"></div>
           )}
 
@@ -89,7 +92,7 @@ if (Astro.request.method === 'POST') {
           <div class="pt-4 border-t border-gray-800 relative z-10">
             <p class="text-sm text-gray-400 mb-1">Current Plan</p>
             <div class="flex items-center gap-2">
-              {isPro ? (
+              {user.plan === 'pro' ? (
                 <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide shadow-[0_0_15px_-3px_rgba(37,99,235,0.5)]">
                   Pro Tier
                 </span>
@@ -106,7 +109,7 @@ if (Astro.request.method === 'POST') {
                   <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Documents Indexed</p>
                   <p class="text-white font-medium text-lg">
                     {user.documentCount || 0}
-                    <span class="text-gray-500 text-sm font-normal">/ {isPro ? '∞' : '3'}</span>
+                    <span class="text-gray-500 text-sm font-normal">/ {user.plan === 'pro' ? '∞' : '3'}</span>
                   </p>
                 </div>
               )}
@@ -116,22 +119,28 @@ if (Astro.request.method === 'POST') {
                   <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Invoices Extracted</p>
                   <p class="text-white font-medium text-lg">
                     {pdfCount}
-                    <span class="text-gray-500 text-sm font-normal">/ {isPro ? '∞' : '3'}</span>
+                    <span class="text-gray-500 text-sm font-normal">/ {user.plan === 'pro' ? '∞' : '10'}</span>
                   </p>
                 </div>
               )}
             </div>
 
-            {!isPro ? (
-              <a href="/dashboard/billing" class="mt-8 block w-full bg-white hover:bg-gray-100 text-gray-950 text-center font-bold py-3 rounded-xl transition shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] flex items-center justify-center gap-2">
+            {user.plan !== 'pro' ? (
+              <a
+                href=`/dashboard/billing`
+                class="mt-8 block w-full bg-white hover:bg-gray-100 text-gray-950 text-center font-bold py-3 rounded-xl transition shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] flex items-center justify-center gap-2"
+              >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 Upgrade to Pro
               </a>
             ) : (
-              <a href="/dashboard/billing" class="mt-8 block w-full bg-gray-800 hover:bg-gray-700 text-white text-center font-bold py-3 rounded-xl transition border border-gray-700 flex items-center justify-center gap-2">
+              <button
+                id="manage-billing-btn"
+                class="mt-8 w-full bg-gray-800 hover:bg-gray-700 text-white text-center font-bold py-3 rounded-xl transition border border-gray-700 flex items-center justify-center gap-2"
+              >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                 Manage Subscription
-              </a>
+              </button>
             )}
 
           </div>
@@ -167,5 +176,38 @@ if (Astro.request.method === 'POST') {
       </div>
 
     </main>
+
+  <script define:vars={{ userId: user.id }}>
+      const manageBtn = document.getElementById('manage-billing-btn');
+
+      if (manageBtn) {
+        manageBtn.addEventListener('click', async () => {
+          manageBtn.textContent = 'Contacting Stripe...';
+          manageBtn.disabled = true;
+          try {
+            // Points to your dedicated Node.js API subdomain
+            const res = await fetch('https://api.jammetry.com/api/portal', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId })
+            });
+            const data = await res.json();
+
+            if (data.url) {
+              window.location.href = data.url;
+            } else {
+              alert('Could not open billing portal. Please contact support.');
+              manageBtn.textContent = 'Manage Subscription';
+              manageBtn.disabled = false;
+            }
+          } catch (err) {
+            console.error(err);
+            alert('Network error - Please check your connection.');
+            manageBtn.textContent = 'Manage Subscription';
+            manageBtn.disabled = false;
+          }
+        });
+      }
+    </script>
   </body>
 </html>
