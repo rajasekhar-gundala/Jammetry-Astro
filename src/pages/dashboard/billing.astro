@@ -8,7 +8,14 @@ if (!pb.authStore.isValid) {
   return Astro.redirect('/login');
 }
 
-const user = Astro.locals.user;
+// 👇 THE FIX: Fetch the absolute latest user data directly from the DB!
+// We cannot rely on Astro.locals.user here because the cookie becomes stale immediately after a background payment upgrade.
+let user;
+try {
+  user = await pb.collection('users').getOne(Astro.locals.user.id);
+} catch (e) {
+  user = Astro.locals.user; // Fallback just in case
+}
 
 // 2. Fetch Usage Stats (Mirrors Profile Logic)
 let pdfCount = 0;
@@ -23,11 +30,12 @@ if (user.app_context === 'pdf-extract') {
   }
 }
 
-// Calculate progress bar percentages
-const pdfLimit = user.plan === 'pro' ? 100 : 3; 
-const docLimit = user.plan === 'pro' ? 100 : 3;
-const pdfPercent = Math.min((pdfCount / pdfLimit) * 100, 100);
-const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
+// Calculate progress bar percentages (Handle Pro infinity cleanly)
+const isPro = user.plan === 'pro' || user.plan_type === 'all-in-one';
+const pdfLimit = isPro ? 100 : 3; 
+const docLimit = isPro ? 100 : 3;
+const pdfPercent = isPro ? 100 : Math.min((pdfCount / pdfLimit) * 100, 100);
+const docPercent = isPro ? 100 : Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
 ---
 
 <html lang="en">
