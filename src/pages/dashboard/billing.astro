@@ -1,76 +1,182 @@
 ---
-// Import your dashboard layout here if you have one! 
-// import Layout from '../../layouts/Layout.astro';
-import Layout from '../../layouts/Layout.astro';
+import '../../styles/global.css';
+
+const pb = Astro.locals.pb;
+
+// 1. Protect the route - ensure session is active
+if (!pb.authStore.isValid) {
+  return Astro.redirect('/login');
+}
+
+const user = Astro.locals.user;
+
+// 2. Fetch Usage Stats (Mirrors Profile Logic)
+let pdfCount = 0;
+if (user.app_context === 'pdf-extract') {
+  try {
+    const result = await pb.collection('sales_data').getList(1, 1, {
+      filter: `user_id = "${user.id}"`,
+    });
+    pdfCount = result.totalItems;
+  } catch (err) {
+    console.error("Stats Fetch Error:", err);
+  }
+}
+
+// Calculate progress bar percentages
+const pdfLimit = user.plan === 'pro' ? 100 : 3; // Example limits
+const docLimit = user.plan === 'pro' ? 100 : 3;
+const pdfPercent = Math.min((pdfCount / pdfLimit) * 100, 100);
+const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
 ---
 
-<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Billing & Usage</title>
-  <!-- NOTE: If you aren't wrapping this in your Layout component, make sure your global CSS is imported here -->
-</head>
-<body class="bg-[#0B1120] text-white min-h-screen">
-  
-  <div class="max-w-5xl mx-auto px-6 py-12">
-    <div class="flex justify-between items-center mb-10">
-      <h1 class="text-3xl font-bold">Billing & Usage</h1>
-      <a href="/dashboard/profile" class="text-sm text-gray-400 hover:text-white">&larr; Back to Profile</a>
-    </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Billing & Usage | AI Copilot</title>
+  </head>
+  <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen">
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <nav class="border-b border-gray-800 bg-gray-900">
+      <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div class="text-xl font-bold text-white">
+          Billing & Usage
+        </div>
+        <a href="/dashboard/profile" class="text-gray-400 hover:text-white transition text-sm flex items-center gap-2">
+          &larr; Back to Profile
+        </a>
+      </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
       
-      <!-- Current Usage Card -->
-      <div class="col-span-1 bg-[#111827] rounded-2xl p-6 border border-gray-800">
-        <h2 class="text-xl font-semibold mb-2">Current Plan</h2>
-        <div class="inline-block bg-gray-800 text-gray-300 text-xs px-3 py-1 rounded-full mb-6 font-mono">
-          FREE TIER
-        </div>
-        
-        <div class="space-y-4">
-          <div>
-            <div class="flex justify-between text-sm mb-1">
-              <span class="text-gray-400">PDF Extractions</span>
-              <span class="text-white font-medium">1 / 3 Daily</span>
-            </div>
-            <div class="w-full bg-gray-800 rounded-full h-2">
-              <div class="bg-blue-500 h-2 rounded-full" style="width: 33%"></div>
-            </div>
+      <div class="md:col-span-1">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 relative overflow-hidden shadow-2xl">
+          <h2 class="text-lg font-bold text-white mb-2 relative z-10">Current Plan</h2>
+          
+          <div class="flex items-center gap-2 mb-8 relative z-10">
+            {user.plan === 'pro' ? (
+              <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-[0_0_15px_-3px_rgba(37,99,235,0.5)]">
+                Pro Tier
+              </span>
+            ) : (
+              <span class="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border border-gray-700">
+                Free Tier
+              </span>
+            )}
+          </div>
+          
+          <div class="space-y-6 relative z-10">
+            {user.app_context === 'pdf-extract' ? (
+              <div>
+                <div class="flex justify-between text-sm mb-2">
+                  <span class="text-gray-400 font-medium">Extractions</span>
+                  <span class="text-white font-bold">{pdfCount} <span class="text-gray-500 font-normal">/ {user.plan === 'pro' ? '∞' : '3'}</span></span>
+                </div>
+                <div class="w-full bg-gray-950 border border-gray-800 rounded-full h-2.5 overflow-hidden">
+                  <div class="bg-blue-500 h-full rounded-full transition-all duration-500" style={`width: ${pdfPercent}%`}></div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div class="flex justify-between text-sm mb-2">
+                  <span class="text-gray-400 font-medium">Indexed Docs</span>
+                  <span class="text-white font-bold">{user.documentCount || 0} <span class="text-gray-500 font-normal">/ {user.plan === 'pro' ? '∞' : '3'}</span></span>
+                </div>
+                <div class="w-full bg-gray-950 border border-gray-800 rounded-full h-2.5 overflow-hidden">
+                  <div class="bg-blue-500 h-full rounded-full transition-all duration-500" style={`width: ${docPercent}%`}></div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <!-- Upgrade / Manage Card -->
-      <div class="col-span-1 md:col-span-2 bg-[#111827] rounded-2xl p-6 border border-gray-800">
-        <h2 class="text-xl font-semibold mb-4">Pro Plan</h2>
-        <p class="text-gray-400 text-sm mb-6">
-          Unlock unlimited PDF extractions, advanced table parsing, and priority vector search queries.
-        </p>
+      <div class="md:col-span-2">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
+          
+          {/* Subtle glow effect for Pro Plan showcase */}
+          {user.plan !== 'pro' && (
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
+          )}
 
-        <div class="bg-[#0B1120] rounded-xl p-4 border border-gray-800 mb-6 flex justify-between items-center">
-          <div>
-            <div class="text-2xl font-bold text-white">$29<span class="text-sm text-gray-500 font-normal">/month</span></div>
-            <div class="text-xs text-green-400 mt-1">&check; Includes all AI modules</div>
+          <h2 class="text-xl font-bold mb-2 text-white">Pro Plan</h2>
+          <p class="text-gray-400 text-sm mb-8">
+            Unlock unlimited PDF extractions, advanced table parsing, and priority vector search queries.
+          </p>
+
+          <div class="bg-gray-950 rounded-xl p-5 border border-gray-800 mb-8 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <div class="text-3xl font-bold text-white">$29<span class="text-base text-gray-500 font-normal">/month</span></div>
+              <div class="text-sm text-green-400 mt-1 flex items-center gap-1.5 font-medium">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                Includes all AI modules
+              </div>
+            </div>
+
+            {user.plan !== 'pro' ? (
+              <button class="bg-white hover:bg-gray-200 text-gray-950 px-6 py-3 rounded-xl font-bold transition-colors shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)]">
+                Upgrade to Pro
+              </button>
+            ) : (
+              <div class="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Active
+              </div>
+            )}
           </div>
-          <button class="bg-white text-black px-6 py-2 rounded-lg font-semibold hover:bg-gray-200 transition-colors">
-            Upgrade to Pro
-          </button>
-        </div>
 
-        <div class="border-t border-gray-800 pt-6">
-          <h3 class="text-sm font-medium text-white mb-2">Payment Methods</h3>
-          <p class="text-xs text-gray-500 mb-4">Manage your credit cards and billing history via the secure Stripe portal.</p>
-          <button class="text-sm text-blue-400 hover:text-blue-300 font-medium">
-            Open Billing Portal &rarr;
-          </button>
+          <div class="border-t border-gray-800 pt-8">
+            <h3 class="text-sm font-bold text-white mb-2 uppercase tracking-wide">Payment Methods</h3>
+            <p class="text-sm text-gray-400 mb-4">Manage your credit cards, download invoices, and view billing history via the secure Stripe portal.</p>
+            
+            <button 
+              id="manage-billing-btn"
+              class="text-sm font-bold flex items-center gap-2 transition-colors focus:outline-none"
+              class:list={[user.plan === 'pro' ? "text-blue-500 hover:text-blue-400" : "text-gray-500 hover:text-gray-400"]}
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+              Open Billing Portal
+            </button>
+          </div>
+          
         </div>
       </div>
 
-    </div>
-  </div>
+    </main>
 
-</body>
+    <script define:vars={{ userId: user.id }}>
+      const manageBtn = document.getElementById('manage-billing-btn');
+
+      if (manageBtn) {
+        manageBtn.addEventListener('click', async () => {
+          manageBtn.innerHTML = 'Contacting Stripe...';
+          manageBtn.disabled = true;
+          try {
+            const res = await fetch('https://api.jammetry.com/api/portal', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId })
+            });
+            const data = await res.json();
+
+            if (data.url) {
+              window.location.href = data.url;
+            } else {
+              alert('Could not open billing portal. Please contact support.');
+              manageBtn.innerHTML = 'Open Billing Portal';
+              manageBtn.disabled = false;
+            }
+          } catch (err) {
+            console.error(err);
+            alert('Network error - Please check your connection.');
+            manageBtn.innerHTML = 'Open Billing Portal';
+            manageBtn.disabled = false;
+          }
+        });
+      }
+    </script>
+  </body>
 </html>
