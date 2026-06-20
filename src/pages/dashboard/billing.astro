@@ -24,7 +24,7 @@ if (user.app_context === 'pdf-extract') {
 }
 
 // Calculate progress bar percentages
-const pdfLimit = user.plan === 'pro' ? 100 : 3; // Example limits
+const pdfLimit = user.plan === 'pro' ? 100 : 3; 
 const docLimit = user.plan === 'pro' ? 100 : 3;
 const pdfPercent = Math.min((pdfCount / pdfLimit) * 100, 100);
 const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
@@ -36,6 +36,8 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Billing & Usage | AI Copilot</title>
+    
+    <script src="https://www.paypal.com/sdk/js?client-id=AdSwDrUHYLD9nXYLIbFr364_lQcNIi1ClmhaXd6feCMKi-dLveGmq2NQZ1TiMEjRKP_CBXPQD5aNs23u&currency=USD"></script>
   </head>
   <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen">
 
@@ -97,7 +99,6 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
       <div class="md:col-span-2">
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
           
-          {/* Subtle glow effect for Pro Plan showcase */}
           {user.plan !== 'pro' && (
             <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
           )}
@@ -117,9 +118,9 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
             </div>
 
             {user.plan !== 'pro' ? (
-              <button class="bg-white hover:bg-gray-200 text-gray-950 px-6 py-3 rounded-xl font-bold transition-colors shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)]">
-                Upgrade to Pro
-              </button>
+              <div class="relative z-10 w-full sm:w-[200px]">
+                <div id="paypal-button-container"></div>
+              </div>
             ) : (
               <div class="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -129,8 +130,8 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
           </div>
 
           <div class="border-t border-gray-800 pt-8">
-            <h3 class="text-sm font-bold text-white mb-2 uppercase tracking-wide">Payment Methods</h3>
-            <p class="text-sm text-gray-400 mb-4">Manage your credit cards, download invoices, and view billing history via the secure Stripe portal.</p>
+            <h3 class="text-sm font-bold text-white mb-2 uppercase tracking-wide">Legacy Payment Methods</h3>
+            <p class="text-sm text-gray-400 mb-4">If you previously subscribed via Stripe, manage your credit cards and billing history via the secure Stripe portal.</p>
             
             <button 
               id="manage-billing-btn"
@@ -138,7 +139,7 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
               class:list={[user.plan === 'pro' ? "text-blue-500 hover:text-blue-400" : "text-gray-500 hover:text-gray-400"]}
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-              Open Billing Portal
+              Open Stripe Portal
             </button>
           </div>
           
@@ -148,8 +149,8 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
     </main>
 
     <script define:vars={{ userId: user.id }}>
+      // 1. Stripe Portal Logic (Legacy fallback)
       const manageBtn = document.getElementById('manage-billing-btn');
-
       if (manageBtn) {
         manageBtn.addEventListener('click', async () => {
           manageBtn.innerHTML = 'Contacting Stripe...';
@@ -161,21 +162,65 @@ const docPercent = Math.min(((user.documentCount || 0) / docLimit) * 100, 100);
               body: JSON.stringify({ userId })
             });
             const data = await res.json();
-
-            if (data.url) {
-              window.location.href = data.url;
-            } else {
-              alert('Could not open billing portal. Please contact support.');
-              manageBtn.innerHTML = 'Open Billing Portal';
-              manageBtn.disabled = false;
-            }
+            if (data.url) window.location.href = data.url;
+            else alert('Could not open billing portal. Please contact support.');
           } catch (err) {
             console.error(err);
             alert('Network error - Please check your connection.');
-            manageBtn.innerHTML = 'Open Billing Portal';
+          } finally {
+            manageBtn.innerHTML = 'Open Stripe Portal';
             manageBtn.disabled = false;
           }
         });
+      }
+
+      // 2. PayPal Workflow
+      if (document.getElementById('paypal-button-container')) {
+        paypal.Buttons({
+          style: {
+            layout: 'horizontal',
+            color:  'gold',
+            shape:  'rect',
+            label:  'paypal'
+          },
+          createOrder: async () => {
+            const res = await fetch("https://api.jammetry.com/api/paypal/create-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: userId }),
+            });
+            const orderData = await res.json();
+            
+            if (orderData.error) {
+                alert("Failed to initialize PayPal order: " + orderData.error);
+                return;
+            }
+            return orderData.id;
+          },
+          onApprove: async (data) => {
+            // Show a processing state on the screen while capturing
+            document.getElementById('paypal-button-container').innerHTML = '<div class="text-white text-sm font-medium animate-pulse">Processing Payment...</div>';
+
+            const res = await fetch("https://api.jammetry.com/api/paypal/capture-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderID: data.orderID, userId: userId }),
+            });
+            const captureData = await res.json();
+            
+            if (captureData.success) {
+              alert("Upgrade successful! Welcome to Pro.");
+              window.location.reload(); // Hard reload updates PocketBase auth and UI state
+            } else {
+              alert("Payment capture failed. Please contact support.");
+              window.location.reload();
+            }
+          },
+          onError: (err) => {
+            console.error("PayPal Frontend Error:", err);
+            alert("A network error occurred with PayPal. Please try again.");
+          }
+        }).render("#paypal-button-container");
       }
     </script>
   </body>
