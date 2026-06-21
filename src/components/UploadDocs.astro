@@ -9,7 +9,7 @@ const { tenantId } = Astro.props;
     </button>
 </div>
 
-<script is:inline define:vars={{ tenantId }}>
+<script define:vars={{ tenantId }}>
     document.getElementById('upload-btn').onclick = async () => {
         const fileInput = document.getElementById('doc-upload');
         if (!fileInput.files[0]) return alert("Select a file first");
