@@ -156,7 +156,8 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min(((user.documentCount |
             mountTarget.innerHTML = '<div class="text-xs text-gray-400 animate-pulse">Capturing processing instance...</div>';
             const res = await fetch("https://api.jammetry.com/api/paypal/capture-order", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ orderID: data.orderID, userId }),
+              // 👇 THE FIX: Pass `tier: planKey` here so the backend knows which plan to apply
+              body: JSON.stringify({ orderID: data.orderID, userId, tier: planKey }),
             });
             const captureData = await res.json();
             if (captureData.success) {
