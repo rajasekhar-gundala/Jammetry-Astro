@@ -1,0 +1,209 @@
+---
+import '../../styles/global.css';
+
+const pb = Astro.locals.pb;
+
+if (!pb.authStore.isValid) {
+  return Astro.redirect('/login');
+}
+
+let user = Astro.locals.user;
+try {
+  const authData = await pb.collection('users').authRefresh({}, { $autoCancel: false });
+  user = authData.record;
+  const cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
+  Astro.response.headers.append('set-cookie', cookie);
+} catch (e) {}
+
+const userPlans = Array.isArray(user.plan_type) ? user.plan_type : [user.plan_type].filter(Boolean);
+const isProTier = userPlans.includes('pro');
+const isProPlusTier = userPlans.includes('pro-plus');
+const isEnterpriseTier = userPlans.includes('enterprise');
+
+// Fallback logic
+const isPremium = isProTier || isProPlusTier || isEnterpriseTier;
+
+let pdfCount = 0;
+try {
+  const result = await pb.collection('sales_data').getList(1, 1, { filter: `user_id = "${user.id}"` });
+  pdfCount = result.totalItems;
+} catch (err) {}
+
+// 👇 THE FIX: Unified usage and limits calculation
+const totalUsage = (user.documentCount || 0) + pdfCount;
+
+let maxDocs = 3;
+if (isProTier) maxDocs = 299;
+if (isProPlusTier) maxDocs = 399;
+if (isEnterpriseTier) maxDocs = 999999; 
+
+const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs) * 100, 100);
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Pricing & Plans | AI Copilot</title>
+    <!-- REMEMBER TO PUT YOUR CLIENT ID BACK HERE! -->
+    <script is:inline src="https://www.paypal.com/sdk/js?client-id=AdSwDrUHYLD9nXYLIbFr364_lQcNIi1ClmhaXd6feCMKi-dLveGmq2NQZ1TiMEjRKP_CBXPQD5aNs23u&currency=USD"></script>
+  </head>
+  <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen relative">
+
+    <div id="success-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 max-w-md w-full mx-4 text-center shadow-2xl">
+        <div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <h3 class="text-2xl font-bold text-white mb-2">Upgrade Successful!</h3>
+        <p class="text-gray-400 mb-8">Welcome to premium tier. All selected corporate capabilities are now unlocked.</p>
+        <button id="modal-close-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition">Continue</button>
+      </div>
+    </div>
+
+    <nav class="border-b border-gray-800 bg-gray-900">
+      <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div class="text-xl font-bold text-white">Billing Dashboard</div>
+        <a href="/dashboard/profile" class="text-gray-400 hover:text-white transition text-sm flex items-center gap-2">&larr; Profile Settings</a>
+      </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8">
+      
+      <div class="lg:col-span-1">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl">
+          <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Subscription</h2>
+          <div class="mb-6">
+            {isEnterpriseTier && <span class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">Enterprise</span>}
+            {isProPlusTier && <span class="bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">Pro Plus</span>}
+            {isProTier && <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">Pro Tier</span>}
+            {!isPremium && <span class="bg-gray-800 text-gray-300 text-xs font-bold px-3 py-1 rounded-full uppercase border border-gray-700">Free Tier</span>}
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex justify-between text-xs text-gray-400">
+              <span>Monthly Volume Usage</span>
+              <span class="text-white font-bold">{totalUsage} / {isEnterpriseTier ? '∞' : maxDocs}</span>
+            </div>
+            <div class="w-full bg-gray-950 border border-gray-800 rounded-full h-2 overflow-hidden">
+              <div class="bg-blue-500 h-full rounded-full" style={`width: ${progressPercent}%`}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-3 space-y-6">
+        
+        {/* Tier 1: Pro */}
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col md:flex-row justify-between md:items-center gap-6 relative overflow-hidden">
+          <div class="space-y-2">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">Pro Plan</h3>
+            <p class="text-gray-400 text-sm max-w-md">Advanced local modeling vectors. Up to **299 documents** parsed per month seamlessly.</p>
+          </div>
+          <div class="flex flex-col items-end gap-3 min-w-[200px]">
+            <div class="text-3xl font-black text-white">$59<span class="text-xs text-gray-500 font-normal">/mo</span></div>
+            {/* 👇 THE FIX: UI logic to show if active, if skipped (they have Plus), or if it needs a button */}
+            {isProTier ? (
+              <span class="text-xs bg-green-500/20 text-green-400 font-bold px-4 py-2 border border-green-500/30 rounded-xl">Current Active Tier</span>
+            ) : (isProPlusTier || isEnterpriseTier) ? (
+              <span class="text-xs text-gray-500 font-medium">Included in Plan</span>
+            ) : (
+              <div id="paypal-pro-container" class="w-full"></div>
+            )}
+          </div>
+        </div>
+
+        {/* Tier 2: Pro Plus */}
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col md:flex-row justify-between md:items-center gap-6 relative overflow-hidden">
+          <div class="absolute top-0 right-12 bg-blue-600 text-white font-bold text-[10px] px-3 py-1 rounded-b-lg uppercase tracking-widest shadow-md shadow-blue-600/20">Recommended</div>
+          <div class="space-y-2">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">Pro Plus</h3>
+            <p class="text-gray-400 text-sm max-w-md">Extended threshold processing infrastructure. Handles up to **399 documents** per billing step.</p>
+          </div>
+          <div class="flex flex-col items-end gap-3 min-w-[200px]">
+            <div class="text-3xl font-black text-white">$79<span class="text-xs text-gray-500 font-normal">/mo</span></div>
+            {/* 👇 THE FIX: Logic that allows a free OR a Pro user to see this button, but hides it from Plus/Enterprise */}
+            {isProPlusTier ? (
+              <span class="text-xs bg-green-500/20 text-green-400 font-bold px-4 py-2 border border-green-500/30 rounded-xl">Current Active Tier</span>
+            ) : isEnterpriseTier ? (
+              <span class="text-xs text-gray-500 font-medium">Included in Plan</span>
+            ) : (
+              <div id="paypal-plus-container" class="w-full"></div>
+            )}
+          </div>
+        </div>
+
+        {/* Tier 3: Enterprise */}
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col md:flex-row justify-between md:items-center gap-6">
+          <div class="space-y-2">
+            <h3 class="text-lg font-bold text-purple-400">Enterprise Context</h3>
+            <p class="text-gray-400 text-sm max-w-md">Infinite context processing scale, fully dedicated multi-tenant deployment isolation, SLA response priority guarantees.</p>
+          </div>
+          <div class="min-w-[200px] flex justify-end">
+            {isEnterpriseTier ? (
+              <span class="text-xs bg-purple-500/20 text-purple-400 font-bold px-4 py-2 border border-purple-500/30 rounded-xl">Active Corporate Account</span>
+            ) : (
+              <a href={`mailto:sales@jammetry.com?subject=Enterprise%20Upgrade%20Request%20-%20ID:%20${user.id}`} class="w-full text-center bg-purple-600 hover:bg-purple-500 font-bold px-4 py-3 rounded-xl transition text-sm shadow-lg shadow-purple-600/10">
+                Contact Custom Pricing
+              </a>
+            )}
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    {/* 👇 THE FIX: Pass the specific booleans to JS so it knows which buttons to mount */}
+    <script define:vars={{ userId: user.id, isProTier, isProPlusTier, isEnterpriseTier }}>
+      const setupPayPalTier = (containerId, planKey, priceValue) => {
+        const mountTarget = document.getElementById(containerId);
+        if (!mountTarget) return;
+
+        window.paypal.Buttons({
+          style: { layout: 'horizontal', color: 'gold', shape: 'rect', label: 'paypal', tagline: false },
+          createOrder: async () => {
+            const res = await fetch("https://api.jammetry.com/api/paypal/create-order", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId, tier: planKey, value: priceValue }),
+            });
+            const orderData = await res.json();
+            return orderData.id;
+          },
+          onApprove: async (data) => {
+            mountTarget.innerHTML = '<div class="text-xs text-gray-400 animate-pulse">Capturing processing instance...</div>';
+            const res = await fetch("https://api.jammetry.com/api/paypal/capture-order", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderID: data.orderID, userId, tier: planKey }),
+            });
+            const captureData = await res.json();
+            if (captureData.success) {
+              document.getElementById('success-modal').classList.remove('hidden');
+              document.getElementById('modal-close-btn').addEventListener('click', () => window.location.reload());
+            } else {
+              alert("Capture transaction rejected by payment processing matrix.");
+              window.location.reload();
+            }
+          }
+        }).render(`#${containerId}`);
+      };
+
+      const bootLoop = () => {
+        if (window.paypal) {
+          // Mount Pro button if they are not Pro, not Plus, not Enterprise
+          if (!isProTier && !isProPlusTier && !isEnterpriseTier) {
+            setupPayPalTier('paypal-pro-container', 'pro', '59.00');
+          }
+          // Mount Plus button if they are not Plus and not Enterprise (Pro users WILL see this!)
+          if (!isProPlusTier && !isEnterpriseTier) {
+            setupPayPalTier('paypal-plus-container', 'pro-plus', '79.00');
+          }
+        } else {
+          setTimeout(bootLoop, 100);
+        }
+      };
+
+      bootLoop();
+    </script>
+  </body>
+</html>
