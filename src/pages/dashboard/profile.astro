@@ -3,53 +3,44 @@ import '../../styles/global.css';
 
 const pb = Astro.locals.pb;
 
-// 1. Protect the route
+// 1. Route Safeguard
 if (!pb.authStore.isValid) {
   return Astro.redirect('/login');
 }
 
 let user = Astro.locals.user;
-
-// 🌟 THE CRITICAL SYNC FIX: Force a token refresh to update the profile cookie state
 try {
   const authData = await pb.collection('users').authRefresh({}, { $autoCancel: false });
   user = authData.record;
-  
   const cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
   Astro.response.headers.append('set-cookie', cookie);
 } catch (e) {
-  console.error("Profile session sync failed:", e);
+  console.error("Profile sync failure:", e);
 }
 
-// 🌟 THE FIX: Match the same multi-select check in the profile file
+// Check real array configurations
 const userPlans = Array.isArray(user.plan_type) ? user.plan_type : [user.plan_type].filter(Boolean);
 const userModules = Array.isArray(user.active_modules) ? user.active_modules : [user.active_modules].filter(Boolean);
 
-const isPro = userPlans.includes('pro') || 
-              userPlans.includes('all-in-one') || 
-              userModules.includes('all-in-one');
+const isPro = userPlans.includes('pro') || userPlans.includes('pro-plus') || userPlans.includes('all-in-one') || userPlans.includes('enterprise');
 
 let message = '';
 let error = '';
 
-// 2. Dynamic Navigation Logic
-const backLink = user.app_context === 'pdf-extract' ? '/dashboard/extract' : '/dashboard/chat';
-const backLabel = user.app_context === 'pdf-extract' ? 'Back to Extraction' : 'Back to Chat';
+// Calculate Document Metrics based on tiers
+let docLimit = '3';
+if (userPlans.includes('pro')) docLimit = '299';
+if (userPlans.includes('pro-plus')) docLimit = '399';
+if (userPlans.includes('enterprise')) docLimit = '∞';
 
-// 3. Fetch PDF Extraction Stats
+// 2. Fetch Extraction Metrics
 let pdfCount = 0;
-if (user.app_context === 'pdf-extract') {
-  try {
-    const result = await pb.collection('sales_data').getList(1, 1, {
-      filter: `user_id = "${user.id}"`,
-    });
-    pdfCount = result.totalItems;
-  } catch (err) {
-    console.error("Stats Fetch Error:", err);
-  }
-}
+try {
+  const result = await pb.collection('sales_data').getList(1, 1, { filter: `user_id = "${user.id}"` });
+  pdfCount = result.totalItems;
+} catch (err) {}
 
-// 4. Handle Password Change Form Submission
+// Handle Password Alterations
 if (Astro.request.method === 'POST') {
   try {
     const data = await Astro.request.formData();
@@ -60,7 +51,7 @@ if (Astro.request.method === 'POST') {
     });
     message = 'Password updated successfully!';
   } catch (err) {
-    error = 'Failed to update password. Please check your old password and try again.';
+    error = 'Failed to update password.';
   }
 }
 ---
@@ -77,20 +68,30 @@ if (Astro.request.method === 'POST') {
     <nav class="border-b border-gray-800 bg-gray-900">
       <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
         <div class="text-xl font-bold text-white">Settings</div>
-        <a href={backLink} class="text-gray-400 hover:text-white transition text-sm flex items-center gap-2">
-          &larr; {backLabel}
-        </a>
+        
+        {/* 👇 FIX: Multi-Module App Switcher Navigation */}
+        <div class="flex items-center gap-4 text-sm">
+          {userModules.includes('chat') && (
+            <a href="/dashboard/chat" class="text-gray-400 hover:text-white transition flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+              Chat
+            </a>
+          )}
+          {userModules.includes('extract') && (
+            <a href="/dashboard/extract" class="text-gray-400 hover:text-white transition flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Extraction
+            </a>
+          )}
+        </div>
       </div>
     </nav>
 
     <main class="max-w-4xl mx-auto px-6 py-12 grid md:grid-cols-3 gap-8">
 
       <div class="md:col-span-1 space-y-6">
-        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 relative overflow-hidden">
-
-          {isPro && (
-            <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/20 blur-3xl rounded-full pointer-events-none"></div>
-          )}
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 relative overflow-hidden shadow-xl">
+          {isPro && <div class="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/20 blur-3xl rounded-full pointer-events-none"></div>}
 
           <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-2xl font-bold mb-4 shadow-lg relative z-10">
             {user.email.charAt(0).toUpperCase()}
@@ -100,52 +101,28 @@ if (Astro.request.method === 'POST') {
 
           <div class="pt-4 border-t border-gray-800 relative z-10">
             <p class="text-sm text-gray-400 mb-1">Current Plan</p>
-            <div class="flex items-center gap-2">
-              {isPro ? (
-                <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide shadow-[0_0_15px_-3px_rgba(37,99,235,0.5)]">
-                  Pro Tier
-                </span>
-              ) : (
-                <span class="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wide border border-gray-700">
-                  Free Tier
-                </span>
-              )}
+            <div class="flex items-center gap-2 mb-6">
+              {userPlans.includes('enterprise') && <span class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Enterprise</span>}
+              {userPlans.includes('pro-plus') && <span class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Pro Plus</span>}
+              {userPlans.includes('pro') && <span class="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Pro Tier</span>}
+              {!isPro && <span class="bg-gray-800 text-gray-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border border-gray-700">Free Tier</span>}
             </div>
 
-            <div class="mt-6 flex flex-col gap-4">
-              {user.app_context === 'docs-chat' && (
-                <div>
-                  <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Documents Indexed</p>
-                  <p class="text-white font-medium text-lg">
-                    {user.documentCount || 0}
-                    <span class="text-gray-500 text-sm font-normal">/ {isPro ? '∞' : '3'}</span>
-                  </p>
-                </div>
-              )}
-
-              {user.app_context === 'pdf-extract' && (
-                <div>
-                  <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Invoices Extracted</p>
-                  <p class="text-white font-medium text-lg">
-                    {pdfCount}
-                    <span class="text-gray-500 text-sm font-normal">/ {isPro ? '∞' : '3'}</span>
-                  </p>
-                </div>
-              )}
+            <div class="space-y-4">
+              <div>
+                <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Documents Indexed</p>
+                <p class="text-white font-medium text-lg">{user.documentCount || 0} <span class="text-gray-500 text-sm">/ {docLimit}</span></p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Invoices Extracted</p>
+                <p class="text-white font-medium text-lg">{pdfCount} <span class="text-gray-500 text-sm">/ {isPro ? '∞' : '10'}</span></p>
+              </div>
             </div>
 
-            {!isPro ? (
-              <a href="/dashboard/billing" class="mt-8 block w-full bg-white hover:bg-gray-100 text-gray-950 text-center font-bold py-3 rounded-xl transition shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                Upgrade to Pro
-              </a>
-            ) : (
-              <a href="/dashboard/billing" class="mt-8 block w-full bg-gray-800 hover:bg-gray-700 text-white text-center font-bold py-3 rounded-xl transition border border-gray-700 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                Manage Subscription
-              </a>
-            )}
-
+            <a href="/dashboard/billing" class="mt-8 block w-full bg-gray-800 hover:bg-gray-700 text-white text-center font-bold py-3 rounded-xl transition border border-gray-700 flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+              Billing & Subscriptions
+            </a>
           </div>
         </div>
       </div>
@@ -154,26 +131,23 @@ if (Astro.request.method === 'POST') {
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 md:p-8 shadow-2xl">
           <h3 class="text-xl font-bold mb-2 text-white">Change Password</h3>
           <p class="text-gray-400 text-sm mb-6">Ensure your account is using a long, random password to stay secure.</p>
-
           {message && <div class="bg-green-500/10 border border-green-500/50 text-green-400 p-4 rounded-xl text-sm mb-6 font-medium">{message}</div>}
           {error && <div class="bg-red-500/10 border border-red-500/50 text-red-400 p-4 rounded-xl text-sm mb-6 font-medium">{error}</div>}
 
           <form method="POST" class="space-y-5 max-w-md">
             <div>
               <label class="block text-sm font-medium text-gray-300 mb-1.5">Current Password</label>
-              <input type="password" name="oldPassword" required class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-white" placeholder="Enter current password" />
+              <input type="password" name="oldPassword" required class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-300 mb-1.5">New Password</label>
-              <input type="password" name="password" required minlength="8" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-white" placeholder="Minimum 8 characters" />
+              <input type="password" name="password" required minlength="8" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white" />
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-300 mb-1.5">Confirm New Password</label>
-              <input type="password" name="passwordConfirm" required minlength="8" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition text-white" placeholder="Must match new password" />
+              <input type="password" name="passwordConfirm" required minlength="8" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500 text-white" />
             </div>
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition mt-4 shadow-lg shadow-blue-600/20">
-              Update Password
-            </button>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl transition mt-4">Update Password</button>
           </form>
         </div>
       </div>
