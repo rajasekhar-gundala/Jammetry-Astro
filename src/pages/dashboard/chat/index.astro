@@ -64,7 +64,7 @@ try {
     <div class="flex-1 overflow-y-auto space-y-2">
       <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Recent</h3>
       {recentChats.map((chat) => (
-        <a href={`/chat?id=${chat.id}`} class={`block px-3 py-2 rounded-md text-sm truncate transition ${activeChatId === chat.id ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}>
+        <a href={`/dashboard/chat?id=${chat.id}`} class={`block px-3 py-2 rounded-md text-sm truncate transition ${activeChatId === chat.id ? 'bg-gray-800 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}>
           {chat.title.length > 28 ? chat.title.substring(0, 28) + '...' : chat.title}
         </a>
       ))}
