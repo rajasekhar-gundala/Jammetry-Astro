@@ -43,7 +43,8 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Pricing & Plans | AI Copilot</title>
-    <script is:inline src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=USD"></script>
+    <!-- REMEMBER TO PUT YOUR CLIENT ID BACK HERE! -->
+    <script is:inline src="https://www.paypal.com/sdk/js?client-id=AdSwDrUHYLD9nXYLIbFr364_lQcNIi1ClmhaXd6feCMKi-dLveGmq2NQZ1TiMEjRKP_CBXPQD5aNs23u&currency=USD"></script>
   </head>
   <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen relative">
 
@@ -93,23 +94,21 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
       {/* Interactive Pricing View */}
       <div class="lg:col-span-3 space-y-8">
         
-        {/* Interactive Toggles */}
-        {!isPremium && (
-          <div class="flex flex-col items-center justify-center space-y-6 mb-10">
-            {/* App Selector */}
-            <div class="bg-gray-900 p-1.5 rounded-2xl flex flex-col sm:flex-row gap-2 border border-gray-800 shadow-lg w-full max-w-2xl">
-              <button data-app="chat" class="app-toggle flex-1 py-3 px-4 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">💬 Document Chat</button>
-              <button data-app="extract" class="app-toggle flex-1 py-3 px-4 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">📄 Invoice Extraction</button>
-              <button data-app="bundle" class="app-toggle active bg-blue-600 text-white flex-1 py-3 px-4 rounded-xl text-sm font-bold shadow-md transition focus:outline-none">🚀 All-in-One Bundle</button>
-            </div>
-
-            {/* Cycle Selector */}
-            <div class="bg-gray-900 p-1 rounded-full inline-flex border border-gray-800 shadow-md">
-              <button data-cycle="monthly" class="cycle-toggle active px-6 py-2 rounded-full text-sm font-bold bg-gray-700 text-white transition focus:outline-none">Monthly</button>
-              <button data-cycle="yearly" class="cycle-toggle px-6 py-2 rounded-full text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">Yearly <span class="text-green-400 ml-1 text-xs">-20%</span></button>
-            </div>
+        {/* 👇 THE FIX: Removed the !isPremium check here so toggles ALWAYS show */}
+        <div class="flex flex-col items-center justify-center space-y-6 mb-10">
+          {/* App Selector */}
+          <div class="bg-gray-900 p-1.5 rounded-2xl flex flex-col sm:flex-row gap-2 border border-gray-800 shadow-lg w-full max-w-2xl">
+            <button data-app="chat" class="app-toggle flex-1 py-3 px-4 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">💬 Document Chat</button>
+            <button data-app="extract" class="app-toggle flex-1 py-3 px-4 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">📄 Invoice Extraction</button>
+            <button data-app="bundle" class="app-toggle active bg-blue-600 text-white flex-1 py-3 px-4 rounded-xl text-sm font-bold shadow-md transition focus:outline-none">🚀 All-in-One Bundle</button>
           </div>
-        )}
+
+          {/* Cycle Selector */}
+          <div class="bg-gray-900 p-1 rounded-full inline-flex border border-gray-800 shadow-md">
+            <button data-cycle="monthly" class="cycle-toggle active px-6 py-2 rounded-full text-sm font-bold bg-gray-700 text-white transition focus:outline-none">Monthly</button>
+            <button data-cycle="yearly" class="cycle-toggle px-6 py-2 rounded-full text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">Yearly <span class="text-green-400 ml-1 text-xs">-20%</span></button>
+          </div>
+        </div>
 
         {/* Tier 1: Pro */}
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col md:flex-row justify-between md:items-center gap-6 relative overflow-hidden transition-all duration-300">
@@ -222,7 +221,6 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
             b.classList.remove('bg-gray-700', 'text-white', 'active');
             b.classList.add('text-gray-400');
           });
-          // Fix to correctly target the button even if they click the <span> inside it
           const target = e.target.closest('.cycle-toggle');
           target.classList.remove('text-gray-400');
           target.classList.add('bg-gray-700', 'text-white', 'active');
@@ -239,7 +237,6 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
         window.paypal.Buttons({
           style: { layout: 'horizontal', color: 'gold', shape: 'rect', label: 'paypal', tagline: false },
           createOrder: async () => {
-            // Read exact price based on current toggle state at the moment of click
             const currentPrice = planKey === 'pro' ? pricingMatrix[state.cycle][state.app].proPrice : pricingMatrix[state.cycle][state.app].plusPrice;
 
             const res = await fetch("https://api.jammetry.com/api/paypal/create-order", {
@@ -292,7 +289,7 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
       };
 
       // Initialize
-      if (!isProTier && !isProPlusTier && !isEnterpriseTier) updateUI();
+      updateUI(); // ALWAYS trigger the UI update so prices match the default toggles
       bootLoop();
     </script>
   </body>
