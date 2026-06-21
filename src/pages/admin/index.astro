@@ -1,0 +1,207 @@
+---
+import '../../styles/global.css';
+
+const pb = Astro.locals.pb;
+
+// 1. Session Check
+if (!pb.authStore.isValid) {
+  return Astro.redirect('/login');
+}
+
+let currentUser;
+try {
+  const authData = await pb.collection('users').authRefresh({}, { $autoCancel: false });
+  currentUser = authData.record;
+} catch (e) {
+  return Astro.redirect('/login');
+}
+
+// 2. Security Gatekeeper (Only approved admins)
+const ADMIN_EMAILS = ['rajaseg@outlook.com', 'rajaseg@gmail.com', 'itsraj@outlook.com', 'chaitanya@test.com'];
+if (!ADMIN_EMAILS.includes(currentUser.email)) {
+  // If a regular user tries to navigate here, silently bounce them back to their dashboard
+  return Astro.redirect('/dashboard');
+}
+
+// 3. Fetch Global Platform Data
+let allUsers = [];
+let salesData = [];
+try {
+  // Fetch all users sorted by newest first
+  allUsers = await pb.collection('users').getFullList({ sort: '-created' });
+  // Fetch all extraction data to count PDFs per user
+  salesData = await pb.collection('sales_data').getFullList({ fields: 'user_id' });
+} catch (error) {
+  console.error("Admin data fetch error:", error);
+}
+
+// 4. Aggregate PDF Extractions by User ID
+const pdfCountsMap = salesData.reduce((acc, curr) => {
+  acc[curr.user_id] = (acc[curr.user_id] || 0) + 1;
+  return acc;
+}, {});
+
+// 5. Calculate High-Level Platform Metrics
+const totalUsers = allUsers.length;
+const totalPremium = allUsers.filter(u => {
+  const plans = Array.isArray(u.plan_type) ? u.plan_type : [u.plan_type].filter(Boolean);
+  return plans.includes('pro') || plans.includes('pro-plus') || plans.includes('enterprise');
+}).length;
+
+const totalDocsIndexed = allUsers.reduce((sum, u) => sum + (u.documentCount || 0), 0);
+const totalPDFsExtracted = salesData.length;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Command Center | AI Copilot</title>
+  </head>
+  <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen flex flex-col">
+
+    <nav class="border-b border-gray-800 bg-gray-900 sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div class="text-xl font-black text-white flex items-center gap-2">
+          <div class="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-600/20">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+          </div>
+          Admin Command Center
+        </div>
+        
+        <div class="flex items-center gap-5">
+          <a href="/dashboard" class="text-sm font-bold text-gray-400 hover:text-white transition flex items-center gap-2">
+            &larr; Exit to App
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 py-10 w-full flex-grow">
+      
+      {/* Global Analytics Row */}
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg">
+          <h3 class="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Total Users</h3>
+          <span class="text-4xl font-black text-white">{totalUsers}</span>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg relative overflow-hidden">
+          <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-green-500/10 rounded-full blur-xl"></div>
+          <h3 class="text-green-400 text-sm font-bold uppercase tracking-wider mb-2 relative z-10">Premium Accounts</h3>
+          <span class="text-4xl font-black text-white relative z-10">{totalPremium}</span>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg relative overflow-hidden">
+          <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl"></div>
+          <h3 class="text-purple-400 text-sm font-bold uppercase tracking-wider mb-2 relative z-10">Docs Indexed</h3>
+          <span class="text-4xl font-black text-white relative z-10">{totalDocsIndexed}</span>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg relative overflow-hidden">
+          <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/10 rounded-full blur-xl"></div>
+          <h3 class="text-blue-400 text-sm font-bold uppercase tracking-wider mb-2 relative z-10">PDFs Extracted</h3>
+          <span class="text-4xl font-black text-white relative z-10">{totalPDFsExtracted}</span>
+        </div>
+
+      </div>
+
+      {/* Customer Matrix Table */}
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl shadow-xl overflow-hidden">
+        <div class="p-6 border-b border-gray-800 flex justify-between items-center">
+          <h2 class="text-xl font-bold text-white">Customer Matrix</h2>
+          <span class="text-sm text-gray-400">Live Database Sync</span>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-gray-400">
+            <thead class="text-xs uppercase bg-gray-950/50 text-gray-500 border-b border-gray-800">
+              <tr>
+                <th class="px-6 py-4 font-bold">User / Email</th>
+                <th class="px-6 py-4 font-bold">Pricing Tier</th>
+                <th class="px-6 py-4 font-bold">Active Modules</th>
+                <th class="px-6 py-4 font-bold text-center">Volume (Chat / PDF)</th>
+                <th class="px-6 py-4 font-bold">Joined Date</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800">
+              
+              {allUsers.map((u) => {
+                const plans = Array.isArray(u.plan_type) ? u.plan_type : [u.plan_type].filter(Boolean);
+                const modules = Array.isArray(u.active_modules) ? u.active_modules : [u.active_modules].filter(Boolean);
+                
+                const isEnt = plans.includes('enterprise');
+                const isPlus = plans.includes('pro-plus');
+                const isPro = plans.includes('pro');
+                const isPaid = isEnt || isPlus || isPro;
+
+                const pdfs = pdfCountsMap[u.id] || 0;
+                const docs = u.documentCount || 0;
+                const joinDate = new Date(u.created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                return (
+                  <tr class="hover:bg-gray-800/30 transition">
+                    
+                    {/* User Identity */}
+                    <td class="px-6 py-4">
+                      <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                          {u.email.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div class="text-white font-medium">{u.email}</div>
+                          <div class="text-xs text-gray-500 font-mono mt-0.5">{u.id}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Pricing Tier */}
+                    <td class="px-6 py-4">
+                      {isEnt ? <span class="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2.5 py-1 rounded text-xs font-bold uppercase">Enterprise</span> :
+                       isPlus ? <span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded text-xs font-bold uppercase">Pro Plus</span> :
+                       isPro ? <span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-1 rounded text-xs font-bold uppercase">Pro Tier</span> :
+                       <span class="bg-gray-800 text-gray-400 border border-gray-700 px-2.5 py-1 rounded text-xs font-bold uppercase">Free Tier</span>}
+                    </td>
+
+                    {/* Modules */}
+                    <td class="px-6 py-4">
+                      <div class="flex flex-wrap gap-1.5">
+                        {modules.includes('chat') && <span class="bg-gray-800 text-gray-300 px-2 py-0.5 rounded text-xs font-medium">Chat</span>}
+                        {modules.includes('extract') && <span class="bg-gray-800 text-gray-300 px-2 py-0.5 rounded text-xs font-medium">Extract</span>}
+                        {modules.length === 0 && <span class="text-gray-600 text-xs italic">None</span>}
+                      </div>
+                    </td>
+
+                    {/* Usage Stats */}
+                    <td class="px-6 py-4 text-center">
+                      <div class="flex items-center justify-center gap-4">
+                        <div title="Documents Indexed" class="flex items-center gap-1.5 text-gray-300">
+                          <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                          <span class="font-bold">{docs}</span>
+                        </div>
+                        <div class="w-px h-4 bg-gray-700"></div>
+                        <div title="PDFs Extracted" class="flex items-center gap-1.5 text-gray-300">
+                          <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                          <span class="font-bold">{pdfs}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Join Date */}
+                    <td class="px-6 py-4">
+                      {joinDate}
+                    </td>
+
+                  </tr>
+                );
+              })}
+
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </body>
+</html>
