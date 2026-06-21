@@ -1,10 +1,6 @@
 ---
+import Layout from '../layouts/Layout.astro';
 import '../styles/global.css';
-
-const pb = Astro.locals.pb;
-const isLoggedIn = pb?.authStore?.isValid || false;
-const ctaLink = isLoggedIn ? '/dashboard' : '/login';
-const ctaText = isLoggedIn ? 'Go to Dashboard' : 'Get Started for Free';
 
 const features = [
   { title: "Instant Knowledge Base", description: "Upload PDFs, Docx, or crawl your website. Our RAG system indexes everything in seconds.", icon: "📚" },
@@ -19,229 +15,144 @@ const pricing = [
 ];
 ---
 
-<html lang="en" data-theme="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Jammetry AI | Smart Chatbots for Your Business</title>
-  </head>
-  <body class="bg-[var(--ac-bg)] text-[var(--ac-text)] antialiased min-h-screen flex flex-col transition-colors duration-300">
-
-    {/* =========================================
-        1. NAVIGATION BAR
-        ========================================= */}
-    <header class="fixed top-0 w-full z-[var(--ac-z-header)] bg-[var(--ac-header-bg)] backdrop-blur-md border-b border-[var(--ac-border-color)]">
-      <div class="container mx-auto px-6 h-20 flex items-center justify-between">
-        
-        <a href="/" class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-[var(--ac-gradient-primary)] flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-          </div>
-          <span class="text-2xl font-bold tracking-tight gradient-text">Jammetry AI</span>
-        </a>
-
-        <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-[var(--ac-text-muted)]">
-          <a href="#features" class="hover:text-[var(--ac-text)] transition">Features</a>
-          <a href="#pricing" class="hover:text-[var(--ac-text)] transition">Pricing</a>
-        </nav>
-
-        <div class="flex items-center gap-4">
-          <button id="theme-toggle" class="p-2 rounded-full hover:bg-[var(--ac-bg-muted)] text-[var(--ac-text-muted)] transition focus:outline-none">
-            <svg class="w-5 h-5 ac-theme-switch-icon--dark" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-            <svg class="w-5 h-5 ac-theme-switch-icon--light" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-          </button>
-          {!isLoggedIn && <a href="/login" class="hidden sm:block text-sm font-semibold text-[var(--ac-text-muted)] hover:text-[var(--ac-text)] transition">Login</a>}
-          <a href={ctaLink} class="btn-primary text-sm font-bold shadow-[var(--ac-shadow-md)] hover:shadow-[var(--ac-shadow-lg)]">
-            {isLoggedIn ? 'Dashboard' : 'Sign Up'}
-          </a>
-        </div>
-      </div>
-    </header>
-
-    <main class="flex-grow pt-20">
+{/* hideNav={true} prevents Layout.astro from injecting the Admin sidebar here */}
+<Layout title="AI Automation - Smart Chatbots for Your Business" hideNav={true}>
+  
+  {/* CUSTOM LANDING NAV */}
+  <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 py-4">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <a href="/" class="flex items-center gap-2">
+        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+        </svg>
+        <span class="text-xl font-bold tracking-tight text-gray-900">Jammetry AI</span>
+      </a>
       
-      {/* =========================================
-          2. HERO SECTION
-          ========================================= */}
-      <section class="section relative overflow-hidden text-center flex flex-col items-center pt-24 pb-16">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60rem] h-[60rem] bg-[var(--ac-gradient-primary)] opacity-[0.08] blur-[100px] rounded-full pointer-events-none"></div>
+      <div class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
+        <a href="#features" class="hover:text-blue-600 transition-colors">Features</a>
+        <a href="#pricing" class="hover:text-blue-600 transition-colors">Pricing</a>
+      </div>
 
-        <div class="container relative z-10">
-          <h1 class="text-[var(--ac-text-5xl)] md:text-[var(--ac-text-6xl)] font-[var(--ac-font-extrabold)] leading-[var(--ac-leading-tight)] mb-6 animate-fade-in-up max-w-4xl mx-auto">
-            Your Business Knowledge, <br />
-            <span class="gradient-text">Powered by AI.</span>
-          </h1>
+      <div class="flex items-center gap-4">
+        <a href="/login" class="text-sm font-semibold text-gray-700 hover:text-blue-600">Login</a>
+        <a href="/signup" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-sm">Sign Up</a>
+      </div>
+    </div>
+  </nav>
 
-          <p class="section-description mx-auto mb-10 max-w-2xl animate-fade-in-up delay-100">
-            Deploy custom-trained AI assistants to your website in minutes. Automate support, capture leads, and scale your expertise without lifting a finger.
-          </p>
+  <header class="py-24 px-4 text-center bg-linear-to-b from-blue-50 to-white">
+    <h1 class="text-5xl md:text-7xl font-extrabold text-gray-900 tracking-tight mb-6">
+      Your Business Knowledge, <br/>
+      <span class="text-blue-600">Powered by AI.</span>
+    </h1>
+    <p class="text-xl text-gray-600 max-w-2xl mx-auto mb-10">
+      Deploy custom-trained AI assistants to your website in minutes. Automate support, capture leads, and scale your expertise without lifting a finger.
+    </p>
+    <div class="flex justify-center gap-4">
+      <a href="/signup" class="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">Get Started for Free</a>
+      <a href="#pricing" class="px-8 py-4 text-lg font-semibold text-gray-700 hover:text-blue-600 transition-colors">View Pricing &rarr;</a>
+    </div>
+  </header>
 
-          <div class="flex flex-col sm:flex-row justify-center items-center gap-4 animate-fade-in-up delay-200">
-            <a href={ctaLink} class="btn-primary py-4 px-8 text-base shadow-[var(--ac-shadow-lg)] w-full sm:w-auto text-center">
-              {ctaText}
-            </a>
-            <a href="#pricing" class="py-4 px-8 rounded-lg font-medium text-[var(--ac-text)] bg-[var(--ac-bg-subtle)] border border-[var(--ac-border-color)] hover:bg-[var(--ac-bg-muted)] transition-colors w-full sm:w-auto text-center">
-              View Pricing &rarr;
-            </a>
-          </div>
+  <section id="features" class="py-24 max-w-7xl mx-auto px-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+      {features.map(f => (
+        <div class="p-8 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+          <div class="text-4xl mb-4">{f.icon}</div>
+          <h3 class="text-xl font-bold mb-3 text-gray-900">{f.title}</h3>
+          <p class="text-gray-600 leading-relaxed">{f.description}</p>
         </div>
-      </section>
+      ))}
+    </div>
+  </section>
 
-      {/* =========================================
-          3. FEATURES GRID
-          ========================================= */}
-      <section id="features" class="section ac-section-band--subtle ac-section-dividers-y">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title">Built for Speed and Scale</h2>
-            <p class="section-description">Everything you need to launch intelligent AI agents for your clients.</p>
-          </div>
+  <section id="pricing" class="py-24 bg-gray-50 border-y border-gray-100">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl font-bold text-gray-900 tracking-tight">Simple, Transparent Pricing</h2>
+        <p class="text-gray-600 mt-4 text-lg">Choose the plan that fits your business needs.</p>
+      </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
-            {features.map((f, index) => (
-              <div class={`bg-[var(--ac-card-bg)] border border-[var(--ac-card-border)] p-8 rounded-[var(--ac-rounded-xl)] shadow-[var(--ac-shadow)] hover:shadow-[var(--ac-shadow-md)] transition-shadow animate-fade-in-up delay-${(index + 1) * 100} is-in-view`}>
-                <div class="text-4xl mb-6">{f.icon}</div>
-                <h3 class="text-xl font-bold mb-3 text-[var(--ac-text)]">{f.title}</h3>
-                <p class="text-[var(--ac-text-muted)] leading-relaxed">{f.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* =========================================
-          4. PRICING SECTION
-          ========================================= */}
-      <section id="pricing" class="section">
-        <div class="container">
-          <div class="section-header mb-16">
-            <h2 class="section-title">Simple, Transparent Pricing</h2>
-            <p class="section-description">Choose the plan that fits your business needs.</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-            {pricing.map(plan => (
-              <div class={`relative p-8 rounded-[var(--ac-rounded-2xl)] bg-[var(--ac-card-bg)] transition-all ${
-                plan.highlight 
-                  ? 'border-2 border-[rgb(var(--ac-primary))] shadow-[var(--ac-shadow-xl)] scale-100 md:scale-105 z-10' 
-                  : 'border border-[var(--ac-card-border)] shadow-[var(--ac-shadow)]'
-              }`}>
-                
-                {plan.highlight && (
-                  <span class="absolute -top-4 left-1/2 -translate-x-1/2 bg-[var(--ac-gradient-primary)] text-white text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-widest shadow-md">
-                    Most Popular
-                  </span>
-                )}
-                
-                <h3 class="text-2xl font-bold text-[var(--ac-text)]">{plan.name}</h3>
-                
-                <div class="mt-4 flex items-baseline gap-1">
-                  <span class="text-4xl font-extrabold text-[var(--ac-text)]">{plan.price}</span>
-                  <span class="text-[var(--ac-text-subtle)] font-medium">{plan.price !== 'Custom' ? '/mo' : ''}</span>
-                </div>
-                
-                <p class="mt-4 text-[var(--ac-text-muted)] text-sm">{plan.description}</p>
-                
-                <ul class="mt-8 space-y-4 mb-10">
-                  {plan.features.map(feat => (
-                    <li class="flex items-start gap-3 text-[var(--ac-text-muted)] text-sm">
-                      <svg class="w-5 h-5 text-[rgb(var(--ac-primary))] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                      {feat}
-                    </li>
-                  ))}
-                </ul>
-
-                <a href={plan.link} class={`block text-center w-full py-3 px-4 rounded-xl font-bold transition-all ${
-                  plan.highlight 
-                    ? 'btn-primary' 
-                    : 'bg-[var(--ac-bg-subtle)] text-[var(--ac-text)] hover:bg-[var(--ac-bg-muted)] border border-[var(--ac-card-border)]'
-                }`}>
-                  {plan.button}
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-    </main>
-
-    {/* =========================================
-        5. FOOTER
-        ========================================= */}
-    <footer class="bg-[var(--ac-bg-subtle)] border-t border-[var(--ac-border-color)] pt-16 pb-8">
-      <div class="container max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-        
-        <div class="col-span-1 md:col-span-1">
-          <a href="/" class="flex items-center gap-2 mb-4">
-            <div class="w-6 h-6 rounded bg-[var(--ac-gradient-primary)] flex items-center justify-center">
-              <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {pricing.map(plan => (
+          <div class={`relative p-8 rounded-2xl bg-white border ${plan.highlight ? 'border-blue-500 shadow-xl scale-105 z-10' : 'border-gray-200 shadow-sm'}`}>
+            {plan.highlight && (
+              <span class="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
+                Most Popular
+              </span>
+            )}
+            <h3 class="text-2xl font-bold text-gray-900">{plan.name}</h3>
+            <div class="mt-4 flex items-baseline gap-1">
+              <span class="text-4xl font-bold">{plan.price}</span>
+              <span class="text-gray-500">{plan.price !== 'Custom' ? '/mo' : ''}</span>
             </div>
-            <span class="text-lg font-bold text-[var(--ac-text)]">Jammetry AI</span>
-          </a>
-          <p class="text-sm text-[var(--ac-text-muted)] leading-relaxed">
-            The all-in-one AI automation platform for modern businesses. Built for speed, scale, and security.
-          </p>
-        </div>
-        
-        <div>
-          <h4 class="font-bold text-[var(--ac-text)] mb-4">Product</h4>
-          <ul class="space-y-2 text-sm text-[var(--ac-text-muted)]">
-            <li><a href="#features" class="hover:text-[var(--ac-text)] transition-colors">Features</a></li>
-            <li><a href="#pricing" class="hover:text-[var(--ac-text)] transition-colors">Pricing</a></li>
-            <li><a href="/login" class="hover:text-[var(--ac-text)] transition-colors">Admin Login</a></li>
-          </ul>
-        </div>
+            <p class="mt-4 text-gray-600 text-sm">{plan.description}</p>
+            
+            <ul class="mt-8 space-y-4 mb-10">
+              {plan.features.map(feat => (
+                <li class="flex items-center gap-3 text-gray-700 text-sm">
+                  <span class="text-blue-500 font-bold">✓</span> {feat}
+                </li>
+              ))}
+            </ul>
 
-        <div>
-          <h4 class="font-bold text-[var(--ac-text)] mb-4">Support</h4>
-          <ul class="space-y-2 text-sm text-[var(--ac-text-muted)]">
-            <li><a href="/contact" class="hover:text-[var(--ac-text)] transition-colors">Help Center</a></li>
-            <li><a href="/signup" class="hover:text-[var(--ac-text)] transition-colors">API Docs</a></li>
-            <li><a href="/signup" class="hover:text-[var(--ac-text)] transition-colors">Community</a></li>
-          </ul>
-        </div>
+            <a href={plan.link} class={`block text-center w-full py-3 rounded-lg font-bold transition-all ${plan.highlight ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}>
+              {plan.button}
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
 
-        <div>
-          <h4 class="font-bold text-[var(--ac-text)] mb-4">Legal</h4>
-          <ul class="space-y-2 text-sm text-[var(--ac-text-muted)]">
-            <li><a href="/privacy" class="hover:text-[var(--ac-text)] transition-colors">Privacy Policy</a></li>
-            <li><a href="/terms" class="hover:text-[var(--ac-text)] transition-colors">Terms of Service</a></li>
-          </ul>
-        </div>
+  <footer class="bg-white border-t border-gray-100 pt-16 pb-8">
+    <div class="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+      <div class="col-span-1 md:col-span-1">
+        <a href="/" class="flex items-center gap-2 mb-4">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+          <span class="text-lg font-bold text-gray-900">Jammetry AI</span>
+        </a>
+        <p class="text-sm text-gray-500 leading-relaxed">
+          The all-in-one AI automation platform for modern businesses. Built for speed, scale, and security.
+        </p>
       </div>
       
-      <div class="container max-w-7xl mx-auto px-6 pt-8 border-t border-[var(--ac-border-color)] flex flex-col md:flex-row justify-between items-center gap-4">
-        <p class="text-xs text-[var(--ac-text-subtle)]">© 2026 Jammetry AI. All rights reserved.</p>
-        <div class="flex gap-6">
-          <span class="text-xs text-green-500 flex items-center gap-1.5 font-medium">
-            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span> 
-            Systems Operational
-          </span>
-        </div>
+      <div>
+        <h4 class="font-bold text-gray-900 mb-4">Product</h4>
+        <ul class="space-y-2 text-sm text-gray-600">
+          <li><a href="#features" class="hover:text-blue-600">Features</a></li>
+          <li><a href="#pricing" class="hover:text-blue-600">Pricing</a></li>
+          <li><a href="/login" class="hover:text-blue-600">Admin Login</a></li>
+        </ul>
       </div>
-    </footer>
 
-    {/* =========================================
-        6. CLIENT SCRIPTS (Theme Toggle)
-        ========================================= */}
-    <script is:inline>
-      const themeToggle = document.getElementById('theme-toggle');
-      const htmlElement = document.documentElement;
-      
-      if (!localStorage.getItem('theme')) {
-        localStorage.setItem('theme', 'dark');
-      }
-      htmlElement.setAttribute('data-theme', localStorage.getItem('theme'));
+      <div>
+        <h4 class="font-bold text-gray-900 mb-4">Support</h4>
+        <ul class="space-y-2 text-sm text-gray-600">
+          <li><a href="/contact" class="hover:text-blue-600">Help Center / Contact</a></li>
+          <li><a href="/signup" class="hover:text-blue-600">API Docs</a></li>
+          <li><a href="/signup" class="hover:text-blue-600">Community</a></li>
+        </ul>
+      </div>
 
-      themeToggle.addEventListener('click', () => {
-        const currentTheme = htmlElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        
-        htmlElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-      });
-    </script>
-  </body>
-</html>
+      <div>
+        <h4 class="font-bold text-gray-900 mb-4">Legal</h4>
+        <ul class="space-y-2 text-sm text-gray-600">
+          <li><a href="/privacy" class="hover:text-blue-600">Privacy Policy</a></li>
+          <li><a href="/terms" class="hover:text-blue-600">Terms of Service</a></li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="max-w-7xl mx-auto px-4 pt-8 border-t border-gray-50 flex flex-col md:flex-row justify-between items-center gap-4">
+      <p class="text-xs text-gray-400">© 2026 Jammetry AI. All rights reserved.</p>
+      <div class="flex gap-6">
+        <span class="text-xs text-green-500 flex items-center gap-1">
+          <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Systems Operational
+        </span>
+      </div>
+    </div>
+  </footer>
+</Layout>
