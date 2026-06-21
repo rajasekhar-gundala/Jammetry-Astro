@@ -23,8 +23,13 @@ try {
   console.error("Session token refresh sync failed:", e);
 }
 
-// Robust Pro evaluation logic
-const isPro = user.plan === 'pro' || user.plan === 'Pro' || user.plan_type === 'all-in-one';
+// 🌟 THE FIX: Safely parse the multi-select fields to confirm Pro status
+const userPlans = Array.isArray(user.plan_type) ? user.plan_type : [user.plan_type].filter(Boolean);
+const userModules = Array.isArray(user.active_modules) ? user.active_modules : [user.active_modules].filter(Boolean);
+
+const isPro = userPlans.includes('pro') || 
+              userPlans.includes('all-in-one') || 
+              userModules.includes('all-in-one');
 
 // 2. Fetch Usage Stats
 let pdfCount = 0;

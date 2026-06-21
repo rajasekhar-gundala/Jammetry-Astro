@@ -21,7 +21,13 @@ try {
   console.error("Profile session sync failed:", e);
 }
 
-const isPro = user.plan === 'pro' || user.plan === 'Pro' || user.plan_type === 'all-in-one';
+// 🌟 THE FIX: Match the same multi-select check in the profile file
+const userPlans = Array.isArray(user.plan_type) ? user.plan_type : [user.plan_type].filter(Boolean);
+const userModules = Array.isArray(user.active_modules) ? user.active_modules : [user.active_modules].filter(Boolean);
+
+const isPro = userPlans.includes('pro') || 
+              userPlans.includes('all-in-one') || 
+              userModules.includes('all-in-one');
 
 let message = '';
 let error = '';
