@@ -3,7 +3,6 @@ import '../../styles/global.css';
 
 const pb = Astro.locals.pb;
 
-// 1. Route Safeguard
 if (!pb.authStore.isValid) {
   return Astro.redirect('/login');
 }
@@ -18,29 +17,30 @@ try {
   console.error("Profile sync failure:", e);
 }
 
-// Check real array configurations
 const userPlans = Array.isArray(user.plan_type) ? user.plan_type : [user.plan_type].filter(Boolean);
 const userModules = Array.isArray(user.active_modules) ? user.active_modules : [user.active_modules].filter(Boolean);
 
 const isPro = userPlans.includes('pro') || userPlans.includes('pro-plus') || userPlans.includes('all-in-one') || userPlans.includes('enterprise');
 
-let message = '';
-let error = '';
-
-// Calculate Document Metrics based on tiers
-let docLimit = '3';
-if (userPlans.includes('pro')) docLimit = '299';
-if (userPlans.includes('pro-plus')) docLimit = '399';
-if (userPlans.includes('enterprise')) docLimit = '∞';
-
-// 2. Fetch Extraction Metrics
+// 1. Fetch Extraction Metrics
 let pdfCount = 0;
 try {
   const result = await pb.collection('sales_data').getList(1, 1, { filter: `user_id = "${user.id}"` });
   pdfCount = result.totalItems;
 } catch (err) {}
 
-// Handle Password Alterations
+// 👇 THE FIX: Combine both usage metrics into one
+const totalUsage = (user.documentCount || 0) + pdfCount;
+
+// 👇 THE FIX: Set the exact combined limits
+let docLimit = '3';
+if (userPlans.includes('pro')) docLimit = '299';
+if (userPlans.includes('pro-plus')) docLimit = '399';
+if (userPlans.includes('enterprise')) docLimit = '∞';
+
+let message = '';
+let error = '';
+
 if (Astro.request.method === 'POST') {
   try {
     const data = await Astro.request.formData();
@@ -69,7 +69,6 @@ if (Astro.request.method === 'POST') {
       <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
         <div class="text-xl font-bold text-white">Settings</div>
         
-        {/* 👇 FIX: Multi-Module App Switcher Navigation */}
         <div class="flex items-center gap-4 text-sm">
           {userModules.includes('chat') && (
             <a href="/dashboard/chat" class="text-gray-400 hover:text-white transition flex items-center gap-1.5">
@@ -109,13 +108,10 @@ if (Astro.request.method === 'POST') {
             </div>
 
             <div class="space-y-4">
+              {/* 👇 THE FIX: Render only the unified metric */}
               <div>
-                <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Documents Indexed</p>
-                <p class="text-white font-medium text-lg">{user.documentCount || 0} <span class="text-gray-500 text-sm">/ {docLimit}</span></p>
-              </div>
-              <div>
-                <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Invoices Extracted</p>
-                <p class="text-white font-medium text-lg">{pdfCount} <span class="text-gray-500 text-sm">/ {isPro ? '∞' : '10'}</span></p>
+                <p class="text-xs text-gray-400 uppercase font-bold tracking-wider mb-1">Monthly Volume Usage</p>
+                <p class="text-white font-medium text-lg">{totalUsage} <span class="text-gray-500 text-sm">/ {docLimit}</span></p>
               </div>
             </div>
 
