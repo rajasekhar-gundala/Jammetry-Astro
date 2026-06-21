@@ -1,5 +1,6 @@
 ---
 import '../../styles/global.css';
+import PocketBase from 'pocketbase'; // 👈 THE FIX: Import the PocketBase SDK
 
 const pb = Astro.locals.pb;
 
@@ -19,7 +20,6 @@ try {
 // 2. Security Gatekeeper (Only approved admins)
 const ADMIN_EMAILS = ['rajaseg@outlook.com', 'rajaseg@gmail.com', 'itsraj@outlook.com', 'chaitanya@test.com'];
 if (!ADMIN_EMAILS.includes(currentUser.email)) {
-  // If a regular user tries to navigate here, silently bounce them back to their dashboard
   return Astro.redirect('/dashboard');
 }
 
@@ -27,10 +27,23 @@ if (!ADMIN_EMAILS.includes(currentUser.email)) {
 let allUsers = [];
 let salesData = [];
 try {
-  // Fetch all users sorted by newest first
-  allUsers = await pb.collection('users').getFullList({ sort: '-created' });
-  // Fetch all extraction data to count PDFs per user
-  salesData = await pb.collection('sales_data').getFullList({ fields: 'user_id' });
+  // 👇 THE FIX: Create a dedicated Superuser connection to bypass the "only see myself" API rules
+  const adminPb = new PocketBase(pb.baseUrl || "http://rag-pb:8080");
+  
+  // Grab credentials from Astro's env OR Node's env
+  const adminEmail = import.meta.env.PB_ADMIN_EMAIL || process.env.PB_ADMIN_EMAIL;
+  const adminPass = import.meta.env.PB_ADMIN_PASSWORD || process.env.PB_ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPass) {
+      throw new Error("Missing Admin Credentials in Astro Environment");
+  }
+
+  // Authenticate the admin client against the superusers collection
+  await adminPb.collection('_superusers').authWithPassword(adminEmail, adminPass);
+
+  // Fetch using the adminPb instance instead of the user's pb instance!
+  allUsers = await adminPb.collection('users').getFullList({ sort: '-created' });
+  salesData = await adminPb.collection('sales_data').getFullList({ fields: 'user_id' });
 } catch (error) {
   console.error("Admin data fetch error:", error);
 }
