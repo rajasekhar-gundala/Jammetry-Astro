@@ -7,14 +7,6 @@ if (!pb.authStore.isValid) {
   return Astro.redirect('/login');
 }
 
-// 👇 THE FIX: Handle secure server-side logout action
-if (Astro.request.method === 'POST') {
-  pb.authStore.clear();
-  // Clear the browser's cookie jar securely by sending an expired cookie header
-  Astro.response.headers.append('set-cookie', pb.authStore.exportToCookie({ httpOnly: false, secure: false, expires: new Date(0) }));
-  return Astro.redirect('/login');
-}
-
 let user = Astro.locals.user;
 try {
   const authData = await pb.collection('users').authRefresh({}, { $autoCancel: false });
@@ -34,6 +26,7 @@ const isEnterpriseTier = userPlans.includes('enterprise');
 
 const hasChat = userModules.includes('chat');
 const hasExtract = userModules.includes('extract');
+const hasBundle = hasChat && hasExtract;
 
 // Fetch Metrics
 let pdfCount = 0;
@@ -72,23 +65,14 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
           AI Copilot
         </div>
         
-        <div class="flex items-center gap-5">
+        <div class="flex items-center gap-4">
           <a href="/dashboard/billing" class="text-sm font-bold text-gray-400 hover:text-white transition">Billing</a>
-          
           <a href="/dashboard/profile" class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 px-3 py-1.5 rounded-full transition">
             <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white">
               {user.email.charAt(0).toUpperCase()}
             </div>
             <span class="text-sm font-medium text-gray-300">{user.email.split('@')[0]}</span>
           </a>
-
-          {/* 👇 THE FIX: Embedded form-post logout trigger */}
-          <form method="POST" class="margin-0 flex items-center">
-            <button type="submit" class="text-sm font-bold text-gray-400 hover:text-red-400 transition flex items-center gap-1 focus:outline-none">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-              Log Out
-            </button>
-          </form>
         </div>
       </div>
     </nav>
@@ -109,10 +93,10 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
             <div class="p-2 bg-blue-500/10 text-blue-400 rounded-lg">
               <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
             </div>
-            {isEnterpriseTier && <span class="text-xs font-bold bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">Enterprise</span>}
-            {isProPlusTier && <span class="text-xs font-bold bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">Pro Plus</span>}
-            {isProTier && <span class="text-xs font-bold bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30">Pro Tier</span>}
-            {!isProTier && !isProPlusTier && !isEnterpriseTier && <span class="text-xs font-bold bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700">Free Tier</span>}
+            {isEnterpriseTier ? <span class="text-xs font-bold bg-purple-500/20 text-purple-400 px-2 py-1 rounded border border-purple-500/30">Enterprise</span> :
+             isProPlusTier ? <span class="text-xs font-bold bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">Pro Plus</span> :
+             isProTier ? <span class="text-xs font-bold bg-green-500/20 text-green-400 px-2 py-1 rounded border border-green-500/30">Pro Tier</span> :
+             <span class="text-xs font-bold bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700">Free Tier</span>}
           </div>
           <h3 class="text-gray-400 text-sm font-bold uppercase tracking-wider mb-1">Total Monthly Volume</h3>
           <div class="flex items-baseline gap-2 mb-3">
