@@ -216,7 +216,7 @@ try {
             const data = event.replace("data: ", "");
             if (data === "[DONE]") {
                 if (!window.location.search.includes('id=')) {
-                    window.history.pushState({}, '', `/chat?id=${config.conversation}`);
+                    window.history.pushState({}, '', `/dashboard/chat?id=${config.conversation}`);
                 }
                 return;
             }
