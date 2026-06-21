@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import PocketBase from 'pocketbase';
 
 export const POST: APIRoute = async ({ request }) => {
-    const pb = new PocketBase("http://pocketbase:8080");
+    const pb = new PocketBase("http://rag-pb:8080");
     
     try {
         const { email } = await request.json();

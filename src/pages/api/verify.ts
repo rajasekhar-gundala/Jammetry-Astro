@@ -9,7 +9,7 @@ export const GET: APIRoute = async ({ request }) => {
         return new Response("Invalid or missing verification token.", { status: 400 });
     }
 
-    const pb = new PocketBase("http://pocketbase:8080");
+    const pb = new PocketBase("http://rag-pb:8080");
 
     try {
         // 1. Tell PocketBase to verify the user

@@ -15,7 +15,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
         }
 
         // 1. Authenticate with PocketBase as Super Admin
-        const pb = new PocketBase(process.env.PB_URL || "http://pocketbase:8080");
+        const pb = new PocketBase(process.env.PB_URL || "http://rag-pb:8080");
         const adminEmail = process.env.PB_ADMIN_EMAIL;
         const adminPass = process.env.PB_ADMIN_PASSWORD;
 

@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
 export const POST: APIRoute = async ({ request, locals }) => {
-    const pb = new PocketBase("http://pocketbase:8080");
+    const pb = new PocketBase("http://rag-pb:8080");
 
     try {
         const formData = await request.formData();

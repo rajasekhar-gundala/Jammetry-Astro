@@ -15,7 +15,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
             return new Response("Missing required fields", { status: 400 });
         }
 
-        const pb = new PocketBase(process.env.PB_URL || "http://pocketbase:8080");
+        const pb = new PocketBase(process.env.PB_URL || "http://rag-pb:8080");
         const adminEmail = process.env.PB_ADMIN_EMAIL;
         const adminPass = process.env.PB_ADMIN_PASSWORD;
 
