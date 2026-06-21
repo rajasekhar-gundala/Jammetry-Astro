@@ -16,6 +16,8 @@ try {
 } catch (e) {}
 
 const userPlans = Array.isArray(user.plan_type) ? user.plan_type : [user.plan_type].filter(Boolean);
+const userModules = Array.isArray(user.active_modules) ? user.active_modules : [user.active_modules].filter(Boolean);
+
 const isProTier = userPlans.includes('pro');
 const isProPlusTier = userPlans.includes('pro-plus');
 const isEnterpriseTier = userPlans.includes('enterprise');
@@ -43,7 +45,7 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Pricing & Plans | AI Copilot</title>
-    <!-- REMEMBER TO PUT YOUR CLIENT ID BACK HERE! -->
+    <!-- REMEMBER TO PUT YOUR ACTUAL CLIENT ID BACK HERE! -->
     <script is:inline src="https://www.paypal.com/sdk/js?client-id=AdSwDrUHYLD9nXYLIbFr364_lQcNIi1ClmhaXd6feCMKi-dLveGmq2NQZ1TiMEjRKP_CBXPQD5aNs23u&currency=USD"></script>
   </head>
   <body class="bg-gray-950 text-gray-100 font-sans antialiased min-h-screen relative">
@@ -68,7 +70,6 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
 
     <main class="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-4 gap-8">
       
-      {/* Sidebar Metrics View */}
       <div class="lg:col-span-1">
         <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl sticky top-6">
           <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Current Subscription</h2>
@@ -91,19 +92,16 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
         </div>
       </div>
 
-      {/* Interactive Pricing View */}
       <div class="lg:col-span-3 space-y-8">
         
-        {/* 👇 THE FIX: Removed the !isPremium check here so toggles ALWAYS show */}
+        {/* Toggles are ALWAYS visible so users can buy upgrades! */}
         <div class="flex flex-col items-center justify-center space-y-6 mb-10">
-          {/* App Selector */}
           <div class="bg-gray-900 p-1.5 rounded-2xl flex flex-col sm:flex-row gap-2 border border-gray-800 shadow-lg w-full max-w-2xl">
             <button data-app="chat" class="app-toggle flex-1 py-3 px-4 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">💬 Document Chat</button>
             <button data-app="extract" class="app-toggle flex-1 py-3 px-4 rounded-xl text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">📄 Invoice Extraction</button>
             <button data-app="bundle" class="app-toggle active bg-blue-600 text-white flex-1 py-3 px-4 rounded-xl text-sm font-bold shadow-md transition focus:outline-none">🚀 All-in-One Bundle</button>
           </div>
 
-          {/* Cycle Selector */}
           <div class="bg-gray-900 p-1 rounded-full inline-flex border border-gray-800 shadow-md">
             <button data-cycle="monthly" class="cycle-toggle active px-6 py-2 rounded-full text-sm font-bold bg-gray-700 text-white transition focus:outline-none">Monthly</button>
             <button data-cycle="yearly" class="cycle-toggle px-6 py-2 rounded-full text-sm font-bold text-gray-400 hover:text-white transition focus:outline-none">Yearly <span class="text-green-400 ml-1 text-xs">-20%</span></button>
@@ -116,17 +114,9 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
             <h3 class="text-xl font-bold text-white">Pro</h3>
             <p class="text-gray-400 text-sm max-w-md">Standard AI capabilities. Handles up to <b id="ui-docs-pro" class="text-gray-200">299</b> documents parsed per month.</p>
           </div>
-          <div class="flex flex-col items-end gap-3 min-w-[200px]">
-            <div class="text-3xl font-black text-white">$<span id="ui-price-pro">59</span><span id="ui-cycle-pro" class="text-xs text-gray-500 font-normal">/mo</span></div>
-            
-            {isProTier ? (
-              <span class="text-xs bg-green-500/20 text-green-400 font-bold px-4 py-2 border border-green-500/30 rounded-xl">Current Active Tier</span>
-            ) : (isProPlusTier || isEnterpriseTier) ? (
-              <span class="text-xs text-gray-500 font-medium">Included in Plan</span>
-            ) : (
-              <div id="paypal-pro-container" class="w-full"></div>
-            )}
-          </div>
+          
+          {/* 👇 Dynamic Wrapper controlled by JS */}
+          <div id="pro-action-wrapper" class="flex flex-col items-end gap-3 min-w-[200px]"></div>
         </div>
 
         {/* Tier 2: Pro Plus */}
@@ -136,17 +126,9 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
             <h3 class="text-xl font-bold text-white">Pro Plus</h3>
             <p class="text-gray-400 text-sm max-w-md">Extended processing infrastructure. Handles up to <b id="ui-docs-plus" class="text-gray-200">399</b> documents per billing step.</p>
           </div>
-          <div class="flex flex-col items-end gap-3 min-w-[200px]">
-            <div class="text-3xl font-black text-white">$<span id="ui-price-plus">79</span><span id="ui-cycle-plus" class="text-xs text-gray-500 font-normal">/mo</span></div>
-            
-            {isProPlusTier ? (
-              <span class="text-xs bg-green-500/20 text-green-400 font-bold px-4 py-2 border border-green-500/30 rounded-xl">Current Active Tier</span>
-            ) : isEnterpriseTier ? (
-              <span class="text-xs text-gray-500 font-medium">Included in Plan</span>
-            ) : (
-              <div id="paypal-plus-container" class="w-full"></div>
-            )}
-          </div>
+          
+          {/* 👇 Dynamic Wrapper controlled by JS */}
+          <div id="plus-action-wrapper" class="flex flex-col items-end gap-3 min-w-[200px]"></div>
         </div>
 
         {/* Tier 3: Enterprise */}
@@ -167,10 +149,18 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
       </div>
     </main>
 
-    <!-- 👇 CLIENT-SIDE LOGIC FOR DYNAMIC PRICING & PAYPAL -->
-    <script define:vars={{ userId: user.id, isProTier, isProPlusTier, isEnterpriseTier }}>
+    <!-- 👇 SMART CLIENT LOGIC -->
+    <script define:vars={{ userId: user.id, isProTier, isProPlusTier, isEnterpriseTier, userModules }}>
       
-      // 1. State Management Matrix
+      // 1. Determine what the user currently owns
+      const hasChat = userModules.includes('chat');
+      const hasExtract = userModules.includes('extract');
+      let currentUserApp = 'none';
+      if (hasChat && hasExtract) currentUserApp = 'bundle';
+      else if (hasChat) currentUserApp = 'chat';
+      else if (hasExtract) currentUserApp = 'extract';
+
+      // 2. State Management Matrix
       let state = { app: 'bundle', cycle: 'monthly' };
 
       const pricingMatrix = {
@@ -179,29 +169,99 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
           extract: { proPrice: "39.00", plusPrice: "59.00", proDocs: "199", plusDocs: "299" },
           bundle: { proPrice: "59.00", plusPrice: "79.00", proDocs: "299", plusDocs: "399" }
         },
-        yearly: { // 20% Discount
+        yearly: { 
           chat: { proPrice: "374.00", plusPrice: "566.00", proDocs: "199", plusDocs: "299" },
           extract: { proPrice: "374.00", plusPrice: "566.00", proDocs: "199", plusDocs: "299" },
           bundle: { proPrice: "566.00", plusPrice: "758.00", proDocs: "299", plusDocs: "399" }
         }
       };
 
-      // 2. UI Update Function
+      // 3. Render PayPal Buttons
+      const setupPayPalTier = (containerId, planKey) => {
+        const mountTarget = document.getElementById(containerId);
+        if (!mountTarget || !window.paypal) return;
+
+        window.paypal.Buttons({
+          style: { layout: 'horizontal', color: 'gold', shape: 'rect', label: 'paypal', tagline: false },
+          createOrder: async () => {
+            const currentPrice = planKey === 'pro' ? pricingMatrix[state.cycle][state.app].proPrice : pricingMatrix[state.cycle][state.app].plusPrice;
+
+            const res = await fetch("https://api.jammetry.com/api/paypal/create-order", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId, tier: planKey, value: currentPrice, purchasedModule: state.app, billingCycle: state.cycle }),
+            });
+            const orderData = await res.json();
+            return orderData.id;
+          },
+          onApprove: async (data) => {
+            mountTarget.innerHTML = '<div class="text-xs text-gray-400 animate-pulse">Capturing processing instance...</div>';
+            const res = await fetch("https://api.jammetry.com/api/paypal/capture-order", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderID: data.orderID, userId, tier: planKey, purchasedModule: state.app, billingCycle: state.cycle }),
+            });
+            const captureData = await res.json();
+            if (captureData.success) {
+              document.getElementById('success-modal').classList.remove('hidden');
+              document.getElementById('modal-close-btn').addEventListener('click', () => window.location.reload());
+            } else {
+              alert("Capture transaction rejected by payment processing matrix.");
+              window.location.reload();
+            }
+          }
+        }).render(`#${containerId}`);
+      };
+
+      // 4. Core UI Logic - Re-evaluates on every toggle click!
       const updateUI = () => {
         const data = pricingMatrix[state.cycle][state.app];
-        
-        document.getElementById('ui-price-pro').innerText = parseInt(data.proPrice);
-        document.getElementById('ui-price-plus').innerText = parseInt(data.plusPrice);
-        
+        const cycleSuffix = state.cycle === 'monthly' ? '/mo' : '/yr';
+
+        const proWrapper = document.getElementById('pro-action-wrapper');
+        const plusWrapper = document.getElementById('plus-action-wrapper');
+
+        // Prepare Price HTML
+        const proPriceHTML = `<div class="text-3xl font-black text-white">$${parseInt(data.proPrice)}<span class="text-xs text-gray-500 font-normal">${cycleSuffix}</span></div>`;
+        const plusPriceHTML = `<div class="text-3xl font-black text-white">$${parseInt(data.plusPrice)}<span class="text-xs text-gray-500 font-normal">${cycleSuffix}</span></div>`;
+        const badgeHTML = `<span class="text-xs bg-green-500/20 text-green-400 font-bold px-4 py-2 border border-green-500/30 rounded-xl">Current Active Tier</span>`;
+        const includedHTML = `<span class="text-xs text-gray-500 font-medium">Included in Plan</span>`;
+
         document.getElementById('ui-docs-pro').innerText = data.proDocs;
         document.getElementById('ui-docs-plus').innerText = data.plusDocs;
 
-        const cycleSuffix = state.cycle === 'monthly' ? '/mo' : '/yr';
-        document.getElementById('ui-cycle-pro').innerText = cycleSuffix;
-        document.getElementById('ui-cycle-plus').innerText = cycleSuffix;
+        // Reset containers
+        proWrapper.innerHTML = proPriceHTML + '<div id="paypal-pro-container" class="w-full"></div>';
+        plusWrapper.innerHTML = plusPriceHTML + '<div id="paypal-plus-container" class="w-full"></div>';
+
+        // LOGIC: Evaluate if the current toggle state is an upgrade from what they own
+        let showProBtn = true;
+        let showPlusBtn = true;
+
+        if (isEnterpriseTier) {
+            showProBtn = false; showPlusBtn = false;
+            proWrapper.innerHTML = proPriceHTML + includedHTML;
+            plusWrapper.innerHTML = plusPriceHTML + includedHTML;
+        } else if (isProPlusTier) {
+            showProBtn = false;
+            proWrapper.innerHTML = proPriceHTML + includedHTML;
+
+            // They are Pro Plus. Are they upgrading their cycle or app?
+            if (state.cycle === 'yearly') showPlusBtn = true; 
+            else if (state.app === 'bundle' && currentUserApp !== 'bundle') showPlusBtn = true;
+            else { showPlusBtn = false; plusWrapper.innerHTML = plusPriceHTML + badgeHTML; }
+        } else if (isProTier) {
+            // They are Pro. Are they upgrading their cycle or app?
+            if (state.cycle === 'yearly') showProBtn = true;
+            else if (state.app === 'bundle' && currentUserApp !== 'bundle') showProBtn = true;
+            else if (state.app !== currentUserApp && currentUserApp !== 'bundle') showProBtn = true; // Switching single apps
+            else { showProBtn = false; proWrapper.innerHTML = proPriceHTML + badgeHTML; }
+        }
+
+        // Render the buttons if needed
+        if (showProBtn) setupPayPalTier('paypal-pro-container', 'pro');
+        if (showPlusBtn) setupPayPalTier('paypal-plus-container', 'pro-plus');
       };
 
-      // 3. Event Listeners for Toggles
+      // 5. Setup Toggle Listeners
       document.querySelectorAll('.app-toggle').forEach(btn => {
         btn.addEventListener('click', (e) => {
           document.querySelectorAll('.app-toggle').forEach(b => {
@@ -229,67 +289,11 @@ const progressPercent = isEnterpriseTier ? 100 : Math.min((totalUsage / maxDocs)
         });
       });
 
-      // 4. PayPal Integration (Reads Live State!)
-      const setupPayPalTier = (containerId, planKey) => {
-        const mountTarget = document.getElementById(containerId);
-        if (!mountTarget) return;
-
-        window.paypal.Buttons({
-          style: { layout: 'horizontal', color: 'gold', shape: 'rect', label: 'paypal', tagline: false },
-          createOrder: async () => {
-            const currentPrice = planKey === 'pro' ? pricingMatrix[state.cycle][state.app].proPrice : pricingMatrix[state.cycle][state.app].plusPrice;
-
-            const res = await fetch("https://api.jammetry.com/api/paypal/create-order", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                userId, 
-                tier: planKey, 
-                value: currentPrice, 
-                purchasedModule: state.app, 
-                billingCycle: state.cycle 
-              }),
-            });
-            const orderData = await res.json();
-            return orderData.id;
-          },
-          onApprove: async (data) => {
-            mountTarget.innerHTML = '<div class="text-xs text-gray-400 animate-pulse">Capturing processing instance...</div>';
-            const res = await fetch("https://api.jammetry.com/api/paypal/capture-order", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                orderID: data.orderID, 
-                userId, 
-                tier: planKey, 
-                purchasedModule: state.app 
-              }),
-            });
-            const captureData = await res.json();
-            if (captureData.success) {
-              document.getElementById('success-modal').classList.remove('hidden');
-              document.getElementById('modal-close-btn').addEventListener('click', () => window.location.reload());
-            } else {
-              alert("Capture transaction rejected by payment processing matrix.");
-              window.location.reload();
-            }
-          }
-        }).render(`#${containerId}`);
-      };
-
+      // Wait for PayPal SDK to load before first render
       const bootLoop = () => {
-        if (window.paypal) {
-          if (!isProTier && !isProPlusTier && !isEnterpriseTier) {
-            setupPayPalTier('paypal-pro-container', 'pro');
-          }
-          if (!isProPlusTier && !isEnterpriseTier) {
-            setupPayPalTier('paypal-plus-container', 'pro-plus');
-          }
-        } else {
-          setTimeout(bootLoop, 100);
-        }
+        if (window.paypal) updateUI();
+        else setTimeout(bootLoop, 100);
       };
-
-      // Initialize
-      updateUI(); // ALWAYS trigger the UI update so prices match the default toggles
       bootLoop();
     </script>
   </body>
