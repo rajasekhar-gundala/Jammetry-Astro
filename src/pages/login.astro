@@ -26,7 +26,7 @@ if (Astro.request.method === 'POST') {
       return new Response(null, {
         status: 303,
         headers: {
-          'Location': '/dashboard/tenants',
+          'Location': '/dashboard',
           'Set-Cookie': cookieString,
           'Cache-Control': 'no-cache'
         }
